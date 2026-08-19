@@ -58,34 +58,17 @@ video.overlay-media {
   object-fit: contain;
 }
 
-.widget-embed-wrap {
+.video-failed {
   width: 100%;
   height: 100%;
-  position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: #000;
+  color: #9a9ea7;
+  font-size: 13px;
 }
 
-.widget-embed-target {
-  width: 100%;
-}
-
-.widget-embed-fallback {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 1;
-  font-size: 11px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.65);
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-decoration: none;
-  pointer-events: auto;
-}
 
 .overlay-text {
   position: absolute;

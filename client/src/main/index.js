@@ -7,6 +7,7 @@ import { createTray } from "./tray.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
 import { showBroadcast } from "./overlayManager.js";
 import { startLocalServer, getLocalServerPort } from "./localServer.js";
+import { stripVideoCdnReferrer } from "./stripVideoReferrer.js";
 
 let mainWindow = null;
 let tray = null;
@@ -67,6 +68,7 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     registerIpcHandlers();
+    stripVideoCdnReferrer();
 
     if (!is.dev) {
       await startLocalServer(join(__dirname, "../renderer"));

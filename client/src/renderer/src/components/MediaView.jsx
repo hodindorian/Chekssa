@@ -1,5 +1,4 @@
-import { useRef } from "react";
-import InstagramEmbed from "./InstagramEmbed.jsx";
+import { useRef, useState } from "react";
 
 // Renders whatever is currently composed/received: a static image/GIF, or one
 // of the supported video kinds. `autoplay` distinguishes the overlay (plays
@@ -22,28 +21,14 @@ export default function MediaView({ media, autoplay = false, className = "" }) {
   }
 
   if (media.kind === "tiktok") {
-    return (
-      <iframe
-        className={className}
-        src={`https://www.tiktok.com/player/v1/${media.videoId}?autoplay=${autoplay ? 1 : 0}&muted=0&controls=${
-          autoplay ? 0 : 1
-        }&loop=0&music_info=0&description=0`}
-        title="Vidéo TikTok"
-        allow="autoplay; encrypted-media; fullscreen"
-        frameBorder="0"
-      />
-    );
+    return <TikTokPlayer className={className} videoId={media.videoId} autoplay={autoplay} />;
   }
 
   if (media.kind === "twitter") {
     // Resolved to a direct CDN video URL at insert time (see
-    // twitterVideo.js) - a plain autoplaying <video>, not the official
-    // widget's full tweet card.
+    // videoResolvers.js, main process) - a plain autoplaying <video>, not
+    // the official widget's full post card.
     return <VideoElement className={className} src={media.videoUrl} autoplay={autoplay} />;
-  }
-
-  if (media.kind === "instagram") {
-    return <InstagramEmbed postUrl={media.postUrl} className={className} />;
   }
 
   if (media.kind === "local-video") {
@@ -63,18 +48,50 @@ export default function MediaView({ media, autoplay = false, className = "" }) {
 
 function VideoElement({ src, start = 0, end, autoplay, className }) {
   const videoRef = useRef(null);
+  const [failed, setFailed] = useState(false);
+
+  function tryPlay() {
+    const v = videoRef.current;
+    if (!v || !autoplay) return;
+    v.play().catch((err) => {
+      // Some CDNs serve the first response as a short segment/preview
+      // rather than a fully seekable file, so the browser can refuse the
+      // initial autoplay attempt even though the element clearly has
+      // playable data - this fires again on "canplaythrough" once more has
+      // buffered.
+      // eslint-disable-next-line no-console
+      console.error("Autoplay rejected:", src, err);
+    });
+  }
 
   function handleLoadedMetadata() {
     const v = videoRef.current;
     if (!v) return;
     if (start) v.currentTime = start;
-    if (autoplay) v.play().catch(() => {});
+    tryPlay();
   }
 
   function handleTimeUpdate() {
     const v = videoRef.current;
     if (!v || !end) return;
     if (v.currentTime >= end) v.pause();
+  }
+
+  function handleError() {
+    // A black rectangle with no visible message is the worst failure mode -
+    // this is a video/network issue (dead link, blocked host...), not
+    // something retrying would fix, so surface it instead of hiding it.
+    // eslint-disable-next-line no-console
+    console.error("Video failed to load:", src, videoRef.current?.error);
+    setFailed(true);
+  }
+
+  if (failed) {
+    return (
+      <div className={`video-failed ${className}`}>
+        <p>Vidéo indisponible.</p>
+      </div>
+    );
   }
 
   return (
@@ -86,7 +103,45 @@ function VideoElement({ src, start = 0, end, autoplay, className }) {
       autoPlay={autoplay}
       playsInline
       onLoadedMetadata={handleLoadedMetadata}
+      onCanPlay={tryPlay}
       onTimeUpdate={handleTimeUpdate}
+      onError={handleError}
+    />
+  );
+}
+
+// TikTok's `muted=0` param only unlocks the volume slider - autoplay still
+// starts muted regardless, so unmuting needs its documented postMessage API
+// (https://developers.tiktok.com/doc/embed-player). Retried a few times
+// since we can't know exactly when the player's own listener attaches.
+function TikTokPlayer({ videoId, autoplay, className }) {
+  const iframeRef = useRef(null);
+
+  function sendCommand(type, value) {
+    iframeRef.current?.contentWindow?.postMessage({ "x-tiktok-player": true, type, value }, "*");
+  }
+
+  function handleLoad() {
+    if (!autoplay) return;
+    for (const delay of [0, 300, 800, 1500]) {
+      setTimeout(() => {
+        sendCommand("unMute");
+        sendCommand("play");
+      }, delay);
+    }
+  }
+
+  return (
+    <iframe
+      ref={iframeRef}
+      className={className}
+      src={`https://www.tiktok.com/player/v1/${videoId}?autoplay=${autoplay ? 1 : 0}&muted=0&controls=${
+        autoplay ? 0 : 1
+      }&loop=0&music_info=0&description=0`}
+      title="Vidéo TikTok"
+      allow="autoplay; encrypted-media; fullscreen"
+      frameBorder="0"
+      onLoad={handleLoad}
     />
   );
 }

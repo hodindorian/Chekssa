@@ -23,22 +23,34 @@ function computeHeight(width, aspectRatio, display) {
   return Math.min(height, maxHeight);
 }
 
-// Platforms with no seek support (TikTok, X/Twitter, Instagram) always play
-// from the start, so their clip is capped at a flat duration rather than an
-// explicit start/end range.
-const FLAT_VIDEO_CLIP_MS = 17000;
+// Safety ceiling for video kinds that play their own real length (twitter)
+// instead of an explicit chosen start/end range - stops one long video from
+// blocking the queue for everyone else's memes. Also used as the flat
+// fallback duration for tiktok's iframe, which has no duration available.
+const MAX_VIDEO_MS = 60000;
+// Images/GIFs let the sender pick a display time in the composer, capped
+// client-side too - re-capped here in case an older/other client sends more.
+const MAX_IMAGE_MS = 10000;
 
 function autoCloseDuration(payload) {
   const base = store.get("overlayDurationMs");
-  const kind = payload?.media?.kind;
+  const media = payload?.media;
+  const kind = media?.kind;
 
   if (kind === "youtube" || kind === "local-video") {
-    const clipMs = ((payload.media.end ?? 0) - (payload.media.start ?? 0)) * 1000;
+    const clipMs = ((media.end ?? 0) - (media.start ?? 0)) * 1000;
     // Let the clip play out in full before moving on to the next queued item.
     return Math.max(base, clipMs + 1500);
   }
-  if (kind === "tiktok" || kind === "twitter" || kind === "instagram") {
-    return Math.max(base, FLAT_VIDEO_CLIP_MS + 1500);
+  if (kind === "twitter") {
+    const durationMs = media.durationMs > 0 ? Math.min(media.durationMs, MAX_VIDEO_MS) : MAX_VIDEO_MS;
+    return Math.max(base, durationMs + 1500);
+  }
+  if (kind === "tiktok") {
+    return Math.max(base, MAX_VIDEO_MS + 1500);
+  }
+  if (kind === "image" && media.durationMs > 0) {
+    return Math.min(media.durationMs, MAX_IMAGE_MS);
   }
   return base;
 }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import MediaView from "./MediaView.jsx";
-import { resolveTweetVideo } from "../twitterVideo.js";
 
 const CLIP_SECONDS = 17;
 
@@ -8,8 +7,16 @@ const PLATFORM_LABELS = {
   youtube: "YouTube",
   tiktok: "TikTok",
   twitter: "X / Twitter",
-  instagram: "Instagram",
 };
+
+// ipcRenderer.invoke wraps a thrown main-process error as
+// "Error invoking remote method '...': Error: <message>" - strip that back
+// down to the actual message before showing it.
+function cleanIpcError(err, fallback) {
+  const raw = err?.message || String(err || "");
+  const cleaned = raw.replace(/^Error invoking remote method '[^']*':\s*(Error:\s*)?/, "");
+  return cleaned || fallback;
+}
 
 export default function VideoLinkPicker({ onInsert, onCancel }) {
   const [urlInput, setUrlInput] = useState("");
@@ -18,8 +25,9 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
   const [error, setError] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
-  // X/Twitter has no seekable embed URL: the tweet's video has to be
-  // resolved to a direct CDN link first (see twitterVideo.js).
+  // X/Twitter has no seekable/plain embed: the tweet's video has to be
+  // resolved to a direct CDN link first (see videoResolvers.js, main
+  // process - avoids CORS).
   const [twitterVideo, setTwitterVideo] = useState(null);
   const [twitterLoading, setTwitterLoading] = useState(false);
   const [twitterError, setTwitterError] = useState(null);
@@ -30,12 +38,13 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
     setTwitterVideo(null);
     setTwitterError(null);
     setTwitterLoading(true);
-    resolveTweetVideo(parsed.tweetId)
+    window.chekssa
+      .resolveTwitterVideo(parsed.tweetId)
       .then((result) => {
         if (!cancelled) setTwitterVideo(result);
       })
       .catch((err) => {
-        if (!cancelled) setTwitterError(err.message || "Impossible de récupérer la vidéo de ce tweet.");
+        if (!cancelled) setTwitterError(cleanIpcError(err, "Impossible de récupérer la vidéo de ce tweet."));
       })
       .finally(() => {
         if (!cancelled) setTwitterLoading(false);
@@ -53,7 +62,7 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
     const result = parseVideoUrl(value);
     if (!result) {
       setParsed(null);
-      setError(value.trim() ? "Lien non reconnu (YouTube, TikTok, X/Twitter ou Instagram)." : null);
+      setError(value.trim() ? "Lien non reconnu (YouTube, TikTok ou X/Twitter)." : null);
       return;
     }
     setError(null);
@@ -73,9 +82,12 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
     } else if (parsed.platform === "tiktok") {
       onInsert({ kind: "tiktok", videoId: parsed.videoId, aspectRatio: parsed.aspectRatio });
     } else if (parsed.platform === "twitter") {
-      onInsert({ kind: "twitter", videoUrl: twitterVideo.videoUrl, aspectRatio: twitterVideo.aspectRatio });
-    } else if (parsed.platform === "instagram") {
-      onInsert({ kind: "instagram", postUrl: parsed.postUrl, aspectRatio: parsed.aspectRatio });
+      onInsert({
+        kind: "twitter",
+        videoUrl: twitterVideo.videoUrl,
+        aspectRatio: twitterVideo.aspectRatio,
+        durationMs: twitterVideo.durationMs,
+      });
     }
   }
 
@@ -84,9 +96,7 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
       ? { kind: "youtube", videoId: parsed.videoId, start: startSec, end: endSec }
       : parsed.platform === "tiktok"
         ? { kind: "tiktok", videoId: parsed.videoId }
-        : parsed.platform === "twitter"
-          ? twitterVideo && { kind: "twitter", videoUrl: twitterVideo.videoUrl }
-          : { kind: "instagram", postUrl: parsed.postUrl }
+        : twitterVideo && { kind: "twitter", videoUrl: twitterVideo.videoUrl }
     : null;
 
   const previewAspectRatio = parsed?.platform === "twitter" ? twitterVideo?.aspectRatio ?? 16 / 9 : parsed?.aspectRatio;
@@ -99,7 +109,7 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
           autoFocus
           value={urlInput}
           onChange={(e) => handleUrlChange(e.target.value)}
-          placeholder="Lien YouTube, TikTok, X/Twitter ou Instagram"
+          placeholder="Lien YouTube, TikTok ou X/Twitter"
         />
         {error && <p className="connection-error">{error}</p>}
 
@@ -121,7 +131,7 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
             ) : (
               <p className="hint">
                 {PLATFORM_LABELS[parsed.platform]} ne permet pas de choisir un instant précis : la vidéo est jouée
-                depuis le début, affichage coupé après {CLIP_SECONDS}s.
+                depuis le début, l'affichage dure toute sa longueur (60s max).
               </p>
             )}
 
@@ -180,9 +190,6 @@ function parseVideoUrl(input) {
   if (host === "twitter.com" || host === "x.com") {
     return parseTwitter(url);
   }
-  if (host === "instagram.com") {
-    return parseInstagram(url, trimmed);
-  }
   return null;
 }
 
@@ -223,14 +230,6 @@ function parseTwitter(url) {
   const match = url.pathname.match(/\/status\/(\d+)/);
   if (!match) return null;
   return { platform: "twitter", tweetId: match[1], aspectRatio: 16 / 9 };
-}
-
-function parseInstagram(url, originalInput) {
-  const segments = url.pathname.split("/").filter(Boolean);
-  if ((segments[0] === "p" || segments[0] === "reel" || segments[0] === "tv") && segments[1]) {
-    return { platform: "instagram", postUrl: originalInput.split("?")[0], aspectRatio: 9 / 16 };
-  }
-  return null;
 }
 
 function parseTimeParam(raw) {

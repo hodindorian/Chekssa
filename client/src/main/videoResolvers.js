@@ -1,23 +1,28 @@
-// X/Twitter has no plain iframe embed and its official widget always shows
-// the full tweet card (author, text, buttons) with playback requiring a
-// click - not what we want for an overlay that should just autoplay the
-// clip. Instead we resolve the tweet's own public syndication endpoint
-// (the same one widgets.js itself calls, no API key/auth needed) to get a
-// direct CDN video URL and play that in a bare <video> element.
-//
-// Token derivation and JSON shape verified against yt-dlp's Twitter
-// extractor (yt_dlp/extractor/twitter.py, _generate_syndication_token /
-// _call_syndication_api), an actively maintained reference for this
-// undocumented-but-stable endpoint.
+// Resolves a social-media link to a direct, playable CDN video URL so the
+// overlay can autoplay just the clip - no platform UI chrome, no
+// click-to-play. Done in the main process: the syndication endpoint below
+// doesn't send an Access-Control-Allow-Origin header permitting a
+// renderer-side fetch(), but a Node-side request isn't subject to CORS.
+
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
+// --- X / Twitter --------------------------------------------------------
+// Uses the public syndication endpoint that platform.twitter.com/widgets.js
+// itself calls to render embeds. No API key, well-documented in practice
+// (used by tools like yt-dlp). Token derivation verified against yt-dlp's
+// Twitter extractor (_generate_syndication_token).
 
 function generateSyndicationToken(tweetId) {
   const raw = ((Number(tweetId) / 1e15) * Math.PI).toString(36);
   return raw.replace(/[0.]/g, "");
 }
 
-export async function resolveTweetVideo(tweetId) {
+export async function resolveTwitterVideo(tweetId) {
   const token = generateSyndicationToken(tweetId);
-  const res = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=${token}`);
+  const res = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=${token}`, {
+    headers: { "User-Agent": BROWSER_UA },
+  });
   if (!res.ok) {
     throw new Error(res.status === 404 ? "Tweet introuvable (supprimé ou privé)." : `Erreur X/Twitter (${res.status}).`);
   }
@@ -41,5 +46,6 @@ export async function resolveTweetVideo(tweetId) {
   return {
     videoUrl: best.url,
     aspectRatio: width && height ? width / height : 16 / 9,
+    durationMs: media.video_info?.duration_millis || null,
   };
 }

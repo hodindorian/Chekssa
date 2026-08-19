@@ -13,4 +13,6 @@ contextBridge.exposeInMainWorld("chekssa", {
   setServerUrl: (url) => ipcRenderer.invoke("settings:set-server-url", url),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setKlipyApiKey: (key) => ipcRenderer.invoke("settings:set-klipy-key", key),
+  resolveTwitterVideo: (tweetId) => ipcRenderer.invoke("video:resolve-twitter", tweetId),
+  setWindowContentHeight: (height) => ipcRenderer.send("window:set-content-height", height),
 });

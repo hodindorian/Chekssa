@@ -16,6 +16,9 @@ let nextId = 1;
 const GIF_URL_RE = /https?:\/\/[^\s"'<>]+\.gif(\?[^\s"'<>]*)?/i;
 // Keep in step with the same guard in GifPicker.jsx.
 const MAX_GIF_MB = 8;
+const MAX_IMAGE_DISPLAY_MS = 10000;
+// Must match .sidebar's top+bottom padding in App.css.
+const SIDEBAR_VERTICAL_PADDING = 36;
 
 export default function App() {
   const [state, setState] = useState({ connected: false, sessionCodes: [], serverUrl: "" });
@@ -31,6 +34,7 @@ export default function App() {
   const [klipyCustomerId, setKlipyCustomerId] = useState("");
   const [status, setStatus] = useState(null);
   const fileInputRef = useRef(null);
+  const sidebarContentRef = useRef(null);
 
   useEffect(() => {
     window.chekssa.getState().then(setState);
@@ -50,6 +54,20 @@ export default function App() {
     const timer = setTimeout(() => setStatus(null), 4000);
     return () => clearTimeout(timer);
   }, [status]);
+
+  // The sidebar itself is stretched to the window's full height, so
+  // scrolling was the only way to reach content taller than the window -
+  // instead grow/shrink the actual window to fit the sidebar's real content
+  // height (measured on an unstretched inner wrapper, see .sidebar-content).
+  useEffect(() => {
+    const el = sidebarContentRef.current;
+    if (!el) return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      window.chekssa.setWindowContentHeight(entry.contentRect.height + SIDEBAR_VERTICAL_PADDING);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     function handlePaste(event) {
@@ -102,7 +120,13 @@ export default function App() {
     }
     const dataUrl = await readFileAsDataUrl(blob);
     const img = await loadImage(dataUrl);
-    setMedia({ kind: "image", dataUrl, aspectRatio: img.naturalWidth / img.naturalHeight, isAnimated });
+    setMedia({
+      kind: "image",
+      dataUrl,
+      aspectRatio: img.naturalWidth / img.naturalHeight,
+      isAnimated,
+      durationMs: MAX_IMAGE_DISPLAY_MS,
+    });
   }
 
   async function handlePickImage(event) {
@@ -114,8 +138,12 @@ export default function App() {
 
   async function handleGifPicked(blob, aspectRatio) {
     const dataUrl = await readFileAsDataUrl(blob);
-    setMedia({ kind: "image", dataUrl, aspectRatio, isAnimated: true });
+    setMedia({ kind: "image", dataUrl, aspectRatio, isAnimated: true, durationMs: MAX_IMAGE_DISPLAY_MS });
     setGifPickerOpen(false);
+  }
+
+  function updateMedia(patch) {
+    setMedia((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
   function handleVideoLinkInserted(videoMedia) {
@@ -191,9 +219,15 @@ export default function App() {
       // GIFs go through as-is: resizing them draws a single frame onto a canvas,
       // which would freeze the animation for recipients.
       const dataUrl = media.isAnimated ? media.dataUrl : await resizeImageDataUrl(media.dataUrl);
-      mediaPayload = { kind: "image", dataUrl, aspectRatio: media.aspectRatio, isAnimated: media.isAnimated };
+      mediaPayload = {
+        kind: "image",
+        dataUrl,
+        aspectRatio: media.aspectRatio,
+        isAnimated: media.isAnimated,
+        durationMs: Math.min(media.durationMs || MAX_IMAGE_DISPLAY_MS, MAX_IMAGE_DISPLAY_MS),
+      };
     } else {
-      // Video kinds (youtube/tiktok/twitter/instagram/local-video) go through as-is.
+      // Video kinds (youtube/tiktok/twitter/local-video) go through as-is.
       mediaPayload = media;
     }
     const payload = { codes, media: mediaPayload, texts };
@@ -206,110 +240,130 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div className="app-brand">
-          <img src={logo} alt="" className="app-logo" />
-          <h1>Chekssa</h1>
-        </div>
-        <SessionPanel
-          connected={state.connected}
-          serverUrl={state.serverUrl}
-          lastError={state.lastError}
-          sessionCodes={state.sessionCodes}
-          onJoin={handleJoin}
-          onLeave={handleLeave}
-        />
-
-        <div className="toolbox">
-          <h2>Composer</h2>
-          <button type="button" onClick={() => fileInputRef.current?.click()}>
-            Ajouter une image
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handlePickImage}
-            style={{ display: "none" }}
-          />
-          <button type="button" onClick={() => setGifPickerOpen(true)}>
-            Chercher un GIF
-          </button>
-          <button type="button" onClick={() => setVideoLinkPickerOpen(true)}>
-            Ajouter une vidéo (lien)
-          </button>
-          <button type="button" onClick={() => setLocalVideoPickerOpen(true)}>
-            Ajouter une vidéo locale
-          </button>
-          <button type="button" onClick={addText} disabled={!media}>
-            Ajouter un texte
-          </button>
-          <p className="hint">Astuce : Ctrl+V colle directement une image ou un GIF copié.</p>
-          <p className="hint">Liens vidéo supportés : YouTube, TikTok, X/Twitter, Instagram.</p>
-        </div>
-
-        {selectedText && (
-          <div className="text-editor">
-            <h2>Texte sélectionné</h2>
-            <textarea
-              value={selectedText.content}
-              onChange={(e) => updateText(selectedText.id, { content: e.target.value })}
-              rows={2}
-            />
-            <label>
-              Taille
-              <input
-                type="range"
-                min={2}
-                max={14}
-                step={0.5}
-                value={selectedText.fontPct}
-                onChange={(e) => updateText(selectedText.id, { fontPct: Number(e.target.value) })}
-              />
-            </label>
-            <label>
-              Couleur
-              <input
-                type="color"
-                value={selectedText.color}
-                onChange={(e) => updateText(selectedText.id, { color: e.target.value })}
-              />
-            </label>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={selectedText.bold}
-                onChange={(e) => updateText(selectedText.id, { bold: e.target.checked })}
-              />
-              Gras
-            </label>
-            <div className="align-group">
-              {[
-                ["left", "Gauche"],
-                ["center", "Centre"],
-                ["right", "Droite"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={selectedText.align === value ? "primary" : ""}
-                  onClick={() => updateText(selectedText.id, { align: value })}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="hint">Glissez le texte pour le déplacer, ou ses bords gauche/droit pour changer sa largeur.</p>
-            <button type="button" className="danger" onClick={() => deleteText(selectedText.id)}>
-              Supprimer ce texte
-            </button>
+        <div className="sidebar-content" ref={sidebarContentRef}>
+          <div className="app-brand">
+            <img src={logo} alt="" className="app-logo" />
+            <h1>Chekssa</h1>
           </div>
-        )}
+          <SessionPanel
+            connected={state.connected}
+            serverUrl={state.serverUrl}
+            lastError={state.lastError}
+            sessionCodes={state.sessionCodes}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+          />
 
-        <button type="button" className="send-button primary" onClick={handleSendClick}>
-          Envoyer
-        </button>
-        {status && <p className="status">{status}</p>}
+          <div className="toolbox">
+            <h2>Composer</h2>
+            <button type="button" onClick={() => fileInputRef.current?.click()}>
+              Ajouter une image
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePickImage}
+              style={{ display: "none" }}
+            />
+            <button type="button" onClick={() => setGifPickerOpen(true)}>
+              Chercher un GIF
+            </button>
+            <button type="button" onClick={() => setVideoLinkPickerOpen(true)}>
+              Ajouter une vidéo (lien)
+            </button>
+            <button type="button" onClick={() => setLocalVideoPickerOpen(true)}>
+              Ajouter une vidéo locale
+            </button>
+            <button type="button" onClick={addText} disabled={!media}>
+              Ajouter un texte
+            </button>
+            <p className="hint">Astuce : Ctrl+V colle directement une image ou un GIF copié.</p>
+            <p className="hint">Liens vidéo supportés : YouTube, TikTok, X/Twitter.</p>
+          </div>
+
+          {media?.kind === "image" && (
+            <div className="text-editor">
+              <h2>Durée d'affichage</h2>
+              <label>
+                <span className="nowrap">{((media.durationMs ?? MAX_IMAGE_DISPLAY_MS) / 1000).toFixed(1)}s</span>
+                <input
+                  type="range"
+                  min={1000}
+                  max={MAX_IMAGE_DISPLAY_MS}
+                  step={500}
+                  value={media.durationMs ?? MAX_IMAGE_DISPLAY_MS}
+                  onChange={(e) => updateMedia({ durationMs: Number(e.target.value) })}
+                />
+              </label>
+            </div>
+          )}
+
+          {selectedText && (
+            <div className="text-editor">
+              <h2>Texte sélectionné</h2>
+              <textarea
+                value={selectedText.content}
+                onChange={(e) => updateText(selectedText.id, { content: e.target.value })}
+                rows={2}
+              />
+              <label>
+                Taille
+                <input
+                  type="range"
+                  min={2}
+                  max={14}
+                  step={0.5}
+                  value={selectedText.fontPct}
+                  onChange={(e) => updateText(selectedText.id, { fontPct: Number(e.target.value) })}
+                />
+              </label>
+              <label>
+                Couleur
+                <input
+                  type="color"
+                  value={selectedText.color}
+                  onChange={(e) => updateText(selectedText.id, { color: e.target.value })}
+                />
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedText.bold}
+                  onChange={(e) => updateText(selectedText.id, { bold: e.target.checked })}
+                />
+                Gras
+              </label>
+              <div className="align-group">
+                {[
+                  ["left", "Gauche"],
+                  ["center", "Centre"],
+                  ["right", "Droite"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={selectedText.align === value ? "primary" : ""}
+                    onClick={() => updateText(selectedText.id, { align: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="hint">Glissez le texte pour le déplacer, ou ses bords gauche/droit pour changer sa largeur.</p>
+              <button type="button" className="danger" onClick={() => deleteText(selectedText.id)}>
+                Supprimer ce texte
+              </button>
+            </div>
+          )}
+
+          <button type="button" className="send-button primary" onClick={handleSendClick}>
+            Envoyer
+          </button>
+        </div>
       </aside>
+
+      {status && <p className="status status-toast">{status}</p>}
 
       <main className="canvas-area">
         <ImageCanvas
