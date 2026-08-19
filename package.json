@@ -1,7 +1,7 @@
 {
   "name": "chekssa",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Diffusion en live d'images annotées en overlay, par sessions.",
   "workspaces": [
     "server",
