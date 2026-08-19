@@ -3,7 +3,8 @@ import ImageCanvas from "./components/ImageCanvas.jsx";
 import SessionPanel from "./components/SessionPanel.jsx";
 import SendDialog from "./components/SendDialog.jsx";
 import GifPicker from "./components/GifPicker.jsx";
-import YouTubeClipPicker from "./components/YouTubeClipPicker.jsx";
+import VideoLinkPicker from "./components/VideoLinkPicker.jsx";
+import LocalVideoPicker from "./components/LocalVideoPicker.jsx";
 import { readFileAsDataUrl, loadImage, resizeImageDataUrl } from "./imageUtils.js";
 import logo from "./assets/logo.png";
 
@@ -22,7 +23,8 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [gifPickerOpen, setGifPickerOpen] = useState(false);
-  const [youtubePickerOpen, setYoutubePickerOpen] = useState(false);
+  const [videoLinkPickerOpen, setVideoLinkPickerOpen] = useState(false);
+  const [localVideoPickerOpen, setLocalVideoPickerOpen] = useState(false);
   const [klipyApiKey, setKlipyApiKey] = useState("");
   const [klipyCustomerId, setKlipyCustomerId] = useState("");
   const [status, setStatus] = useState(null);
@@ -107,9 +109,14 @@ export default function App() {
     setGifPickerOpen(false);
   }
 
-  function handleYoutubeInserted({ videoId, start, end, aspectRatio }) {
-    setMedia({ kind: "youtube", videoId, start, end, aspectRatio });
-    setYoutubePickerOpen(false);
+  function handleVideoLinkInserted(videoMedia) {
+    setMedia(videoMedia);
+    setVideoLinkPickerOpen(false);
+  }
+
+  function handleLocalVideoInserted(videoMedia) {
+    setMedia(videoMedia);
+    setLocalVideoPickerOpen(false);
   }
 
   async function handleSaveKlipyKey(key) {
@@ -171,13 +178,14 @@ export default function App() {
     setSendDialogOpen(false);
     setStatus("Envoi en cours…");
     let mediaPayload;
-    if (media.kind === "youtube") {
-      mediaPayload = media;
-    } else {
+    if (media.kind === "image") {
       // GIFs go through as-is: resizing them draws a single frame onto a canvas,
       // which would freeze the animation for recipients.
       const dataUrl = media.isAnimated ? media.dataUrl : await resizeImageDataUrl(media.dataUrl);
       mediaPayload = { kind: "image", dataUrl, aspectRatio: media.aspectRatio, isAnimated: media.isAnimated };
+    } else {
+      // Video kinds (youtube/tiktok/twitter/instagram/local-video) go through as-is.
+      mediaPayload = media;
     }
     const payload = { codes, media: mediaPayload, texts };
     const res = await window.chekssa.sendBroadcast(payload);
@@ -217,13 +225,17 @@ export default function App() {
           <button type="button" onClick={() => setGifPickerOpen(true)}>
             Chercher un GIF
           </button>
-          <button type="button" onClick={() => setYoutubePickerOpen(true)}>
-            Ajouter une vidéo YouTube
+          <button type="button" onClick={() => setVideoLinkPickerOpen(true)}>
+            Ajouter une vidéo (lien)
+          </button>
+          <button type="button" onClick={() => setLocalVideoPickerOpen(true)}>
+            Ajouter une vidéo locale
           </button>
           <button type="button" onClick={addText} disabled={!media}>
             Ajouter un texte
           </button>
           <p className="hint">Astuce : Ctrl+V colle directement une image ou un GIF copié.</p>
+          <p className="hint">Liens vidéo supportés : YouTube, TikTok, X/Twitter, Instagram.</p>
         </div>
 
         {selectedText && (
@@ -315,8 +327,12 @@ export default function App() {
         />
       )}
 
-      {youtubePickerOpen && (
-        <YouTubeClipPicker onInsert={handleYoutubeInserted} onCancel={() => setYoutubePickerOpen(false)} />
+      {videoLinkPickerOpen && (
+        <VideoLinkPicker onInsert={handleVideoLinkInserted} onCancel={() => setVideoLinkPickerOpen(false)} />
+      )}
+
+      {localVideoPickerOpen && (
+        <LocalVideoPicker onInsert={handleLocalVideoInserted} onCancel={() => setLocalVideoPickerOpen(false)} />
       )}
     </div>
   );

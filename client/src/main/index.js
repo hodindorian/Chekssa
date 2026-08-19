@@ -6,6 +6,7 @@ import { socketClient } from "./socketClient.js";
 import { createTray } from "./tray.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
 import { showBroadcast } from "./overlayManager.js";
+import { startLocalServer, getLocalServerPort } from "./localServer.js";
 
 let mainWindow = null;
 let tray = null;
@@ -43,7 +44,7 @@ function createMainWindow() {
   if (is.dev && process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    win.loadFile(join(__dirname, "../renderer/index.html"));
+    win.loadURL(`http://127.0.0.1:${getLocalServerPort()}/index.html`);
   }
 
   return win;
@@ -64,8 +65,12 @@ if (!gotLock) {
 } else {
   app.on("second-instance", () => showMainWindow());
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     registerIpcHandlers();
+
+    if (!is.dev) {
+      await startLocalServer(join(__dirname, "../renderer"));
+    }
 
     socketClient.on("state-changed", (state) => {
       mainWindow?.webContents.send("state:changed", state);

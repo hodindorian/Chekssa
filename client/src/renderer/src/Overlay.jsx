@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import MediaView from "./components/MediaView.jsx";
 
 export default function Overlay() {
   const [payload, setPayload] = useState(null);
@@ -30,17 +31,7 @@ export default function Overlay() {
         ×
       </button>
       <div className="overlay-image-wrap">
-        {payload.media?.kind === "youtube" ? (
-          <iframe
-            className="overlay-youtube"
-            src={`https://www.youtube.com/embed/${payload.media.videoId}?start=${payload.media.start}&end=${payload.media.end}&autoplay=1&mute=0&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3`}
-            title="Extrait YouTube"
-            allow="autoplay; encrypted-media"
-            frameBorder="0"
-          />
-        ) : (
-          <img src={payload.media?.dataUrl} alt="" draggable={false} />
-        )}
+        <MediaView media={payload.media} autoplay className="overlay-media" />
         {payload.texts?.map((t) => (
           <span
             key={t.id}

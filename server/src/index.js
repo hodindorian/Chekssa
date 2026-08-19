@@ -14,7 +14,9 @@ app.get("/health", (_req, res) => {
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: "*" },
-  maxHttpBufferSize: 10 * 1024 * 1024, // images can be a few MB as base64
+  // Local video files are sent whole (as base64) and only trimmed on
+  // playback; 60MB gives headroom for a ~40MB source file plus overhead.
+  maxHttpBufferSize: 60 * 1024 * 1024,
 });
 
 function normalizeCode(code) {

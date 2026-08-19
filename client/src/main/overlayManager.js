@@ -2,6 +2,7 @@ import { BrowserWindow, screen } from "electron";
 import { join } from "node:path";
 import { is } from "./env.js";
 import { store } from "./store.js";
+import { getLocalServerPort } from "./localServer.js";
 
 const MARGIN = 16;
 const COMPACT_WIDTH = 340;
@@ -22,12 +23,22 @@ function computeHeight(width, aspectRatio, display) {
   return Math.min(height, maxHeight);
 }
 
+// Platforms with no seek support (TikTok, X/Twitter, Instagram) always play
+// from the start, so their clip is capped at a flat duration rather than an
+// explicit start/end range.
+const FLAT_VIDEO_CLIP_MS = 17000;
+
 function autoCloseDuration(payload) {
   const base = store.get("overlayDurationMs");
-  if (payload?.media?.kind === "youtube") {
+  const kind = payload?.media?.kind;
+
+  if (kind === "youtube" || kind === "local-video") {
     const clipMs = ((payload.media.end ?? 0) - (payload.media.start ?? 0)) * 1000;
     // Let the clip play out in full before moving on to the next queued item.
     return Math.max(base, clipMs + 1500);
+  }
+  if (kind === "tiktok" || kind === "twitter" || kind === "instagram") {
+    return Math.max(base, FLAT_VIDEO_CLIP_MS + 1500);
   }
   return base;
 }
@@ -88,7 +99,7 @@ function createOverlayForDisplay(display, payload) {
   if (is.dev && process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/overlay.html`);
   } else {
-    win.loadFile(join(__dirname, "../renderer/overlay.html"));
+    win.loadURL(`http://127.0.0.1:${getLocalServerPort()}/overlay.html`);
   }
 
   win.webContents.once("did-finish-load", () => {
