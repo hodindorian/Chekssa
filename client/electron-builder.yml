@@ -7,7 +7,7 @@ publish:
   provider: github
   owner: hodindorian
   repo: Chekssa
-  draft: false
+  releaseType: release
 files:
   - out/**/*
   - package.json
