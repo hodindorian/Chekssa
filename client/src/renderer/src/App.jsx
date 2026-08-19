@@ -15,7 +15,7 @@ let nextId = 1;
 // static bitmap most apps put on the OS clipboard for "copy image".
 const GIF_URL_RE = /https?:\/\/[^\s"'<>]+\.gif(\?[^\s"'<>]*)?/i;
 // Keep in step with the same guard in GifPicker.jsx.
-const MAX_GIF_MB = 8;
+const MAX_GIF_MB = 40;
 const MAX_IMAGE_DISPLAY_MS = 10000;
 // Must match .sidebar's top+bottom padding in App.css.
 const SIDEBAR_VERTICAL_PADDING = 36;
@@ -299,69 +299,71 @@ export default function App() {
             </div>
           )}
 
-          {selectedText && (
-            <div className="text-editor">
-              <h2>Texte sélectionné</h2>
-              <textarea
-                value={selectedText.content}
-                onChange={(e) => updateText(selectedText.id, { content: e.target.value })}
-                rows={2}
-              />
-              <label>
-                Taille
-                <input
-                  type="range"
-                  min={2}
-                  max={14}
-                  step={0.5}
-                  value={selectedText.fontPct}
-                  onChange={(e) => updateText(selectedText.id, { fontPct: Number(e.target.value) })}
-                />
-              </label>
-              <label>
-                Couleur
-                <input
-                  type="color"
-                  value={selectedText.color}
-                  onChange={(e) => updateText(selectedText.id, { color: e.target.value })}
-                />
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={selectedText.bold}
-                  onChange={(e) => updateText(selectedText.id, { bold: e.target.checked })}
-                />
-                Gras
-              </label>
-              <div className="align-group">
-                {[
-                  ["left", "Gauche"],
-                  ["center", "Centre"],
-                  ["right", "Droite"],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={selectedText.align === value ? "primary" : ""}
-                    onClick={() => updateText(selectedText.id, { align: value })}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="hint">Glissez le texte pour le déplacer, ou ses bords gauche/droit pour changer sa largeur.</p>
-              <button type="button" className="danger" onClick={() => deleteText(selectedText.id)}>
-                Supprimer ce texte
-              </button>
-            </div>
-          )}
-
           <button type="button" className="send-button primary" onClick={handleSendClick}>
             Envoyer
           </button>
         </div>
       </aside>
+
+      {selectedText && (
+        <aside className="text-panel">
+          <div className="text-editor">
+            <h2>Texte sélectionné</h2>
+            <textarea
+              value={selectedText.content}
+              onChange={(e) => updateText(selectedText.id, { content: e.target.value })}
+              rows={2}
+            />
+            <label>
+              Taille
+              <input
+                type="range"
+                min={2}
+                max={14}
+                step={0.5}
+                value={selectedText.fontPct}
+                onChange={(e) => updateText(selectedText.id, { fontPct: Number(e.target.value) })}
+              />
+            </label>
+            <label>
+              Couleur
+              <input
+                type="color"
+                value={selectedText.color}
+                onChange={(e) => updateText(selectedText.id, { color: e.target.value })}
+              />
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={selectedText.bold}
+                onChange={(e) => updateText(selectedText.id, { bold: e.target.checked })}
+              />
+              Gras
+            </label>
+            <div className="align-group">
+              {[
+                ["left", "Gauche"],
+                ["center", "Centre"],
+                ["right", "Droite"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={selectedText.align === value ? "primary" : ""}
+                  onClick={() => updateText(selectedText.id, { align: value })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="hint">Glissez le texte pour le déplacer, ou ses bords gauche/droit pour changer sa largeur.</p>
+            <button type="button" className="danger" onClick={() => deleteText(selectedText.id)}>
+              Supprimer ce texte
+            </button>
+          </div>
+        </aside>
+      )}
 
       {status && <p className="status status-toast">{status}</p>}
 

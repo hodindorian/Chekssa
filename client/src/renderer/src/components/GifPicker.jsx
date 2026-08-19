@@ -9,7 +9,7 @@ const KLIPY_BASE = "https://api.klipy.com/api/v1";
 // trade-off, with "hd" only as a last-resort fallback if smaller sizes are
 // missing. A hard cap avoids the socket "transport close" that Engine.IO
 // throws when a message exceeds the server's maxHttpBufferSize.
-const MAX_GIF_MB = 8;
+const MAX_GIF_MB = 40;
 
 export default function GifPicker({ apiKey, customerId, onSaveApiKey, onSelect, onCancel }) {
   const [query, setQuery] = useState("");

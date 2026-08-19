@@ -14,8 +14,9 @@ app.get("/health", (_req, res) => {
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: "*" },
-  // Local video files are sent whole (as base64) and only trimmed on
-  // playback; 60MB gives headroom for a ~40MB source file plus overhead.
+  // Local video files and large GIFs are sent whole (as base64), capped at
+  // 40MB raw on the client - 60MB gives headroom for that plus base64/JSON
+  // overhead (~1.37x).
   maxHttpBufferSize: 60 * 1024 * 1024,
 });
 

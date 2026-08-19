@@ -17,7 +17,9 @@ function createMainWindow() {
   const win = new BrowserWindow({
     width: 980,
     height: 720,
-    minWidth: 760,
+    // 320px sidebar + 320px text panel (when a text is selected) + enough
+    // left over for the canvas to stay usable.
+    minWidth: 900,
     minHeight: 560,
     show: false,
     autoHideMenuBar: true,

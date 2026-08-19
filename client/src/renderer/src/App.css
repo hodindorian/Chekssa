@@ -47,6 +47,19 @@ body,
   gap: 18px;
 }
 
+/* A separate column (not stacked into .sidebar-content) so opening the text
+   editor grows the window sideways instead of taller - it isn't measured by
+   the ResizeObserver, so overflow-y here just scrolls this panel instead of
+   ever driving the window's height. */
+.text-panel {
+  width: 320px;
+  min-width: 320px;
+  padding: 18px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
 .app-brand {
   display: flex;
   align-items: center;
