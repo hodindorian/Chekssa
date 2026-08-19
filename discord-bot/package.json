@@ -1,0 +1,17 @@
+{
+  "name": "@chekssa/discord-bot",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chekssa - bot Discord pour envoyer des memes/GIFs/vidéos sur une session depuis Discord",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "register-commands": "node src/registerCommands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "sharp": "^0.33.5",
+    "socket.io-client": "^4.7.5"
+  }
+}
