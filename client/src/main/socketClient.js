@@ -6,6 +6,27 @@ function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
 }
 
+function describeErrorDetail(detail) {
+  if (typeof detail === "string") return detail;
+  if (typeof detail === "number") return `status ${detail}`;
+  if (detail instanceof Error) return detail.message;
+  if (detail && typeof detail === "object") {
+    // XMLHttpRequest-shaped object (engine.io's polling transport error context):
+    // status 0 usually means the connection/TLS failed before an HTTP response came back,
+    // and responseText/statusText often carries the underlying Node error (e.g. cert issue).
+    const bits = [
+      detail.status != null && `status ${detail.status}`,
+      detail.statusText && String(detail.statusText).split("\n")[0],
+      detail.responseText && String(detail.responseText).split("\n")[0],
+      detail.message,
+      detail.code,
+      detail.type,
+    ].filter(Boolean);
+    return bits.length ? bits.join(" - ") : JSON.stringify(detail).slice(0, 200);
+  }
+  return String(detail);
+}
+
 class SocketClient extends EventEmitter {
   constructor() {
     super();
@@ -42,8 +63,8 @@ class SocketClient extends EventEmitter {
     }
     store.set("serverUrl", serverUrl);
 
-    // Let socket.io negotiate polling -> websocket upgrade (more resilient behind
-    // reverse proxies that don't perfectly support the websocket upgrade handshake).
+    // Let socket.io negotiate polling -> websocket upgrade (default, most
+    // resilient across reverse proxy configs).
     const socket = io(serverUrl, { reconnection: true });
     this.socket = socket;
 
@@ -64,7 +85,12 @@ class SocketClient extends EventEmitter {
 
     socket.on("connect_error", (error) => {
       this.connected = false;
-      this.lastError = error.message || String(error);
+      const details = [
+        error.message,
+        error.description != null && `description: ${describeErrorDetail(error.description)}`,
+        error.context != null && `context: ${describeErrorDetail(error.context)}`,
+      ].filter(Boolean);
+      this.lastError = details.join(" | ") || String(error);
       this.emitStateChanged();
     });
 

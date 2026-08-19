@@ -40,6 +40,12 @@ docker compose up -d --build
 Le serveur Node écoute en interne sur le port 4000, exposé uniquement sur `127.0.0.1:4000` (pas d'accès public direct). Pointez votre reverse proxy existant (nginx/Caddy/Traefik) vers ce port pour servir `https://chekssa.hodindorian.com` en HTTPS. Exemple nginx (avec upgrade WebSocket requis pour Socket.IO) :
 
 ```nginx
+# À placer dans le bloc http {} (ex: nginx.conf ou conf.d/websocket-upgrade.conf) :
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
 server {
     server_name chekssa.hodindorian.com;
     listen 443 ssl;
@@ -49,11 +55,13 @@ server {
         proxy_pass http://127.0.0.1:4000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
     }
 }
 ```
+
+⚠️ Ne mettez pas `Connection "upgrade"` en dur : Socket.IO utilise d'abord du polling HTTP classique (sans en-tête `Upgrade`) avant de tenter le websocket ; forcer `Connection: Upgrade` sur toutes les requêtes casse ce polling (erreur côté client : `xhr poll error`). Le `map` ci-dessus ne force `Upgrade` que quand c'est réellement une requête d'upgrade.
 
 ## Notes
 

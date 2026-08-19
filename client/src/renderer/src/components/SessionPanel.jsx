@@ -1,7 +1,9 @@
 import { useState } from "react";
 
-export default function SessionPanel({ connected, serverUrl, lastError, sessionCodes, onJoin, onLeave }) {
+export default function SessionPanel({ connected, serverUrl, lastError, sessionCodes, onJoin, onLeave, onSetServerUrl }) {
   const [code, setCode] = useState("");
+  const [editingServer, setEditingServer] = useState(false);
+  const [serverInput, setServerInput] = useState(serverUrl || "");
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -10,13 +12,45 @@ export default function SessionPanel({ connected, serverUrl, lastError, sessionC
     setCode("");
   }
 
+  function startEditingServer() {
+    setServerInput(serverUrl || "");
+    setEditingServer(true);
+  }
+
+  function handleServerSubmit(event) {
+    event.preventDefault();
+    if (!serverInput.trim()) return;
+    onSetServerUrl(serverInput.trim());
+    setEditingServer(false);
+  }
+
   return (
     <div className="session-panel">
       <div className="session-status">
         <span className={`dot ${connected ? "dot-on" : "dot-off"}`} />
         {connected ? "Connecté" : "Déconnecté"}
-        {serverUrl && <span className="server-url">({serverUrl})</span>}
+        {!editingServer && serverUrl && <span className="server-url">({serverUrl})</span>}
+        {!editingServer && (
+          <button type="button" className="link-button" onClick={startEditingServer}>
+            Changer
+          </button>
+        )}
       </div>
+
+      {editingServer && (
+        <form onSubmit={handleServerSubmit} className="session-join-form">
+          <input
+            value={serverInput}
+            onChange={(e) => setServerInput(e.target.value)}
+            placeholder="https://chekssa.hodindorian.com"
+          />
+          <button type="submit">Valider</button>
+          <button type="button" onClick={() => setEditingServer(false)}>
+            Annuler
+          </button>
+        </form>
+      )}
+
       {!connected && lastError && <p className="connection-error">Erreur : {lastError}</p>}
 
       <form onSubmit={handleSubmit} className="session-join-form">

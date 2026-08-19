@@ -70,6 +70,11 @@ export default function App() {
     await window.chekssa.leaveSession(code);
   }
 
+  async function handleSetServerUrl(url) {
+    setStatus("Connexion au serveur…");
+    await window.chekssa.setServerUrl(url);
+  }
+
   function handleSendClick() {
     if (!image) {
       setStatus("Ajoutez une image avant d'envoyer.");
@@ -116,6 +121,7 @@ export default function App() {
           sessionCodes={state.sessionCodes}
           onJoin={handleJoin}
           onLeave={handleLeave}
+          onSetServerUrl={handleSetServerUrl}
         />
 
         <div className="toolbox">
