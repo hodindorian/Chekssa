@@ -1,7 +1,7 @@
 {
   "name": "chekssa",
   "private": true,
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Diffusion en live d'images annotées en overlay, par sessions.",
   "workspaces": [
     "server",
@@ -12,5 +12,5 @@
     "dev:client": "npm run dev --workspace client",
     "build:client": "npm run build --workspace client"
   },
-  "license": "MIT"
+  "license": "CC0-1.0"
 }

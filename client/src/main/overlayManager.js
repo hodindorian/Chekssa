@@ -101,10 +101,10 @@ function scheduleAutoClose(entry) {
 
 export function showBroadcast(payload) {
   closeAll();
-  const displays = screen.getAllDisplays();
-  for (const display of displays) {
-    createOverlayForDisplay(display, payload);
-  }
+  // Show on a single screen only: whichever one the cursor is currently on,
+  // since that's the one the recipient is most likely actually looking at.
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  createOverlayForDisplay(display, payload);
 }
 
 function entryForSender(webContents) {

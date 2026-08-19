@@ -34,7 +34,7 @@ export default function App() {
     if (!file) return;
     const dataUrl = await readFileAsDataUrl(file);
     const img = await loadImage(dataUrl);
-    setImage({ dataUrl, aspectRatio: img.naturalWidth / img.naturalHeight });
+    setImage({ dataUrl, aspectRatio: img.naturalWidth / img.naturalHeight, isAnimated: file.type === "image/gif" });
   }
 
   function addText() {
@@ -70,11 +70,6 @@ export default function App() {
     await window.chekssa.leaveSession(code);
   }
 
-  async function handleSetServerUrl(url) {
-    setStatus("Connexion au serveur…");
-    await window.chekssa.setServerUrl(url);
-  }
-
   function handleSendClick() {
     if (!image) {
       setStatus("Ajoutez une image avant d'envoyer.");
@@ -94,10 +89,12 @@ export default function App() {
   async function doSend(codes) {
     setSendDialogOpen(false);
     setStatus("Envoi en cours…");
-    const compressed = await resizeImageDataUrl(image.dataUrl);
+    // GIFs go through as-is: resizing them draws a single frame onto a canvas,
+    // which would freeze the animation for recipients.
+    const imageDataUrl = image.isAnimated ? image.dataUrl : await resizeImageDataUrl(image.dataUrl);
     const payload = {
       codes,
-      imageDataUrl: compressed,
+      imageDataUrl,
       imageAspectRatio: image.aspectRatio,
       texts,
     };
@@ -121,7 +118,6 @@ export default function App() {
           sessionCodes={state.sessionCodes}
           onJoin={handleJoin}
           onLeave={handleLeave}
-          onSetServerUrl={handleSetServerUrl}
         />
 
         <div className="toolbox">
