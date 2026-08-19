@@ -1,0 +1,25 @@
+{
+  "name": "@chekssa/client",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chekssa - app de diffusion en live (overlay) par sessions",
+  "main": "out/main/index.js",
+  "author": "chekssa",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build && electron-builder"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "43.4.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "vite": "^8.2.1"
+  }
+}
