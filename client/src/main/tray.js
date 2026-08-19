@@ -1,11 +1,8 @@
-import { Tray, Menu, nativeImage, app } from "electron";
-
-// 16x16 transparent-safe dot icon, base64 PNG, avoids depending on a bundled asset file.
-const ICON_DATA_URL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVR4Xu3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAA4N8AGkQAAdI2fdgAAAAASUVORK5CYII=";
+import { Tray, Menu, nativeImage } from "electron";
+import { ICON_PATH } from "./env.js";
 
 export function createTray({ onOpen, onQuit }) {
-  const icon = nativeImage.createFromDataURL(ICON_DATA_URL);
+  const icon = nativeImage.createFromPath(ICON_PATH).resize({ width: 32, height: 32 });
   const tray = new Tray(icon);
   tray.setToolTip("Chekssa");
 

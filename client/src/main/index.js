@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
-import { is } from "./env.js";
+import { is, ICON_PATH } from "./env.js";
 import { store } from "./store.js";
 import { socketClient } from "./socketClient.js";
 import { createTray } from "./tray.js";
@@ -19,6 +19,7 @@ function createMainWindow() {
     minHeight: 560,
     show: false,
     autoHideMenuBar: true,
+    icon: ICON_PATH,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -83,6 +84,10 @@ if (!gotLock) {
         app.quit();
       },
     });
+
+    if (process.platform === "darwin") {
+      app.dock?.setIcon(ICON_PATH);
+    }
 
     app.on("activate", () => showMainWindow());
   });

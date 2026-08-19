@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function SessionPanel({ connected, sessionCodes, onJoin, onLeave }) {
+export default function SessionPanel({ connected, serverUrl, lastError, sessionCodes, onJoin, onLeave }) {
   const [code, setCode] = useState("");
 
   function handleSubmit(event) {
@@ -14,8 +14,10 @@ export default function SessionPanel({ connected, sessionCodes, onJoin, onLeave 
     <div className="session-panel">
       <div className="session-status">
         <span className={`dot ${connected ? "dot-on" : "dot-off"}`} />
-        {connected ? "Connecté au serveur" : "Déconnecté"}
+        {connected ? "Connecté" : "Déconnecté"}
+        {serverUrl && <span className="server-url">({serverUrl})</span>}
       </div>
+      {!connected && lastError && <p className="connection-error">Erreur : {lastError}</p>}
 
       <form onSubmit={handleSubmit} className="session-join-form">
         <input

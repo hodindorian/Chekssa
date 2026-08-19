@@ -3,6 +3,7 @@ import ImageCanvas from "./components/ImageCanvas.jsx";
 import SessionPanel from "./components/SessionPanel.jsx";
 import SendDialog from "./components/SendDialog.jsx";
 import { readFileAsDataUrl, loadImage, resizeImageDataUrl } from "./imageUtils.js";
+import logo from "./assets/logo.png";
 
 let nextId = 1;
 
@@ -104,9 +105,14 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <h1>Chekssa</h1>
+        <div className="app-brand">
+          <img src={logo} alt="" className="app-logo" />
+          <h1>Chekssa</h1>
+        </div>
         <SessionPanel
           connected={state.connected}
+          serverUrl={state.serverUrl}
+          lastError={state.lastError}
           sessionCodes={state.sessionCodes}
           onJoin={handleJoin}
           onLeave={handleLeave}

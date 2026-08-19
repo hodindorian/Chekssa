@@ -11,6 +11,7 @@ class SocketClient extends EventEmitter {
     super();
     this.socket = null;
     this.connected = false;
+    this.lastError = null;
   }
 
   get serverUrl() {
@@ -26,6 +27,7 @@ class SocketClient extends EventEmitter {
       serverUrl: this.serverUrl,
       connected: this.connected,
       sessionCodes: this.sessionCodes,
+      lastError: this.lastError,
     };
   }
 
@@ -40,19 +42,29 @@ class SocketClient extends EventEmitter {
     }
     store.set("serverUrl", serverUrl);
 
-    const socket = io(serverUrl, { transports: ["websocket"], reconnection: true });
+    // Let socket.io negotiate polling -> websocket upgrade (more resilient behind
+    // reverse proxies that don't perfectly support the websocket upgrade handshake).
+    const socket = io(serverUrl, { reconnection: true });
     this.socket = socket;
 
     socket.on("connect", () => {
       this.connected = true;
+      this.lastError = null;
       for (const code of this.sessionCodes) {
         socket.emit("join-session", code);
       }
       this.emitStateChanged();
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
       this.connected = false;
+      this.lastError = reason;
+      this.emitStateChanged();
+    });
+
+    socket.on("connect_error", (error) => {
+      this.connected = false;
+      this.lastError = error.message || String(error);
       this.emitStateChanged();
     });
 
