@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Client, GatewayIntentBits } from "discord.js";
 import { socketClient } from "./socketClient.js";
 import { buildImageMedia, buildLocalVideoMedia, CLIP_SECONDS } from "./media.js";
