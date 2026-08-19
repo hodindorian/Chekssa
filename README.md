@@ -19,7 +19,7 @@ npm run dev:client
 
 Dans l'app, rejoignez un code de session (ex: `EQUIPE1`) — n'importe quel code fonctionne, il est créé à la volée. Ouvrez une deuxième instance (autre poste, ou dossier `userData` différent) et rejoignez le même code pour tester la diffusion.
 
-L'URL du serveur utilisée par le client est stockée localement (`http://localhost:4000` par défaut) ; elle peut être changée via l'IPC `settings:set-server-url` exposé au renderer.
+L'URL du serveur utilisée par le client est stockée localement (`https://chekssa.hodindorian.com` par défaut) ; elle peut être changée via l'IPC `settings:set-server-url` exposé au renderer.
 
 ## Build / packaging
 
@@ -28,6 +28,32 @@ npm run build:client
 ```
 
 Génère les installeurs via `electron-builder` (NSIS sur Windows, DMG/ZIP sur macOS, AppImage sur Linux) dans `client/dist/`.
+
+Un workflow GitHub Actions (`.github/workflows/release.yml`) construit automatiquement les 3 binaires et les publie dans une GitHub Release à chaque tag `v*` poussé (ex: `git tag v0.1.0 && git push origin v0.1.0`).
+
+## Déploiement du serveur (VPS, Docker)
+
+```bash
+docker compose up -d --build
+```
+
+Le serveur Node écoute en interne sur le port 4000, exposé uniquement sur `127.0.0.1:4000` (pas d'accès public direct). Pointez votre reverse proxy existant (nginx/Caddy/Traefik) vers ce port pour servir `https://chekssa.hodindorian.com` en HTTPS. Exemple nginx (avec upgrade WebSocket requis pour Socket.IO) :
+
+```nginx
+server {
+    server_name chekssa.hodindorian.com;
+    listen 443 ssl;
+    # ... certificats TLS ...
+
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
 
 ## Notes
 

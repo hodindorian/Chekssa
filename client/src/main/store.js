@@ -2,7 +2,7 @@ import Store from "electron-store";
 
 export const store = new Store({
   defaults: {
-    serverUrl: "http://localhost:4000",
+    serverUrl: "https://chekssa.hodindorian.com",
     sessionCodes: [],
     overlayDurationMs: 10000,
   },

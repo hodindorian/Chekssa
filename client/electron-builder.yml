@@ -2,6 +2,10 @@ appId: com.chekssa.app
 productName: Chekssa
 directories:
   buildResources: build
+publish:
+  provider: github
+  owner: hodindorian
+  repo: Chekssa
 files:
   - out/**/*
   - package.json

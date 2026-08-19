@@ -1,0 +1,11 @@
+services:
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+    ports:
+      # Bound to localhost only: point your reverse proxy (nginx/Caddy/Traefik)
+      # at 127.0.0.1:4000 to serve https://chekssa.hodindorian.com over TLS.
+      - "127.0.0.1:4000:4000"
