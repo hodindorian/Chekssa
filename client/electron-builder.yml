@@ -1,5 +1,6 @@
 appId: com.chekssa.app
 productName: Chekssa
+executableName: Chekssa
 directories:
   buildResources: build
 publish:
