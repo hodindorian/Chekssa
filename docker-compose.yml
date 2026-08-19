@@ -7,3 +7,14 @@ services:
       PORT: 4000
     ports:
       - "0.0.0.0:4000:4000"
+
+  discord-bot:
+    build:
+      context: ./discord-bot
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      CHEKSSA_SERVER_URL: http://server:4000
+      DEFAULT_SESSION_CODE: REPS2.0
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
