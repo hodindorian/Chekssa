@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 // access ended June 2026). Klipy is the drop-in-ish replacement recommended by the
 // community; its API key lives in the URL path rather than a query param.
 const KLIPY_BASE = "https://api.klipy.com/api/v1";
+// The overlay popup only ever renders at 340-640px wide, so "hd" gifs (which
+// can run several MB) are wasted weight - "md" is the best size/quality
+// trade-off, with "hd" only as a last-resort fallback if smaller sizes are
+// missing. A hard cap avoids the socket "transport close" that Engine.IO
+// throws when a message exceeds the server's maxHttpBufferSize.
+const MAX_GIF_MB = 8;
 
 export default function GifPicker({ apiKey, customerId, onSaveApiKey, onSelect, onCancel }) {
   const [query, setQuery] = useState("");
@@ -49,7 +55,7 @@ export default function GifPicker({ apiKey, customerId, onSaveApiKey, onSelect, 
   }
 
   async function pick(result) {
-    const gif = result.file?.hd?.gif || result.file?.md?.gif || result.file?.sm?.gif;
+    const gif = result.file?.md?.gif || result.file?.sm?.gif || result.file?.hd?.gif;
     if (!gif) return;
     setLoading(true);
     setError(null);
@@ -57,6 +63,10 @@ export default function GifPicker({ apiKey, customerId, onSaveApiKey, onSelect, 
       const res = await fetch(gif.url);
       if (!res.ok) throw new Error("Téléchargement impossible.");
       const blob = await res.blob();
+      if (blob.size > MAX_GIF_MB * 1024 * 1024) {
+        setError(`Ce GIF est trop volumineux pour être envoyé (${(blob.size / 1024 / 1024).toFixed(1)} Mo, max ${MAX_GIF_MB} Mo). Essaie-en un autre.`);
+        return;
+      }
       onSelect(blob, gif.width && gif.height ? gif.width / gif.height : 1);
     } catch {
       setError("Impossible de récupérer ce GIF.");

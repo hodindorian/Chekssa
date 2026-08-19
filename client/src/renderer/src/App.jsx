@@ -14,6 +14,8 @@ let nextId = 1;
 // so we can fetch the original animated file instead of the flattened
 // static bitmap most apps put on the OS clipboard for "copy image".
 const GIF_URL_RE = /https?:\/\/[^\s"'<>]+\.gif(\?[^\s"'<>]*)?/i;
+// Keep in step with the same guard in GifPicker.jsx.
+const MAX_GIF_MB = 8;
 
 export default function App() {
   const [state, setState] = useState({ connected: false, sessionCodes: [], serverUrl: "" });
@@ -91,6 +93,13 @@ export default function App() {
   }
 
   async function setImageFromBlob(blob, isAnimated) {
+    // Animated GIFs are sent as-is (resizing would freeze the animation), so
+    // unlike static images they can't be shrunk before hitting the socket's
+    // size limit - catch it here instead of a cryptic "transport close".
+    if (isAnimated && blob.size > MAX_GIF_MB * 1024 * 1024) {
+      setStatus(`Ce GIF est trop volumineux pour être envoyé (${(blob.size / 1024 / 1024).toFixed(1)} Mo, max ${MAX_GIF_MB} Mo).`);
+      return;
+    }
     const dataUrl = await readFileAsDataUrl(blob);
     const img = await loadImage(dataUrl);
     setMedia({ kind: "image", dataUrl, aspectRatio: img.naturalWidth / img.naturalHeight, isAnimated });

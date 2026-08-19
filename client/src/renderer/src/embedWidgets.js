@@ -1,27 +1,10 @@
-// Twitter/X and Instagram don't offer a plain <iframe src="..."> embed like
-// YouTube or TikTok do (Instagram's own /embed/ page even sends
-// X-Frame-Options: DENY). The only supported route is their official widget
-// script, which scans the DOM for a placeholder blockquote and replaces it
-// with its own iframe.
-
-let twitterScriptPromise = null;
-
-export function loadTwitterWidgets() {
-  if (window.twttr?.widgets) return Promise.resolve(window.twttr);
-  if (twitterScriptPromise) return twitterScriptPromise;
-  twitterScriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://platform.twitter.com/widgets.js";
-    script.async = true;
-    script.onload = () => resolve(window.twttr);
-    script.onerror = () => {
-      twitterScriptPromise = null;
-      reject(new Error("Impossible de charger le lecteur X/Twitter."));
-    };
-    document.body.appendChild(script);
-  });
-  return twitterScriptPromise;
-}
+// Instagram's own /embed/ page sends X-Frame-Options: DENY, so a plain
+// <iframe src="..."> isn't an option there like it is for YouTube/TikTok.
+// The only supported route is their official widget script, which scans the
+// DOM for a placeholder blockquote and replaces it with its own iframe.
+// (X/Twitter used to go through the same kind of widget here too, but that
+// always shows the full tweet card with click-to-play; see twitterVideo.js
+// for the direct-video-URL approach used instead.)
 
 let instagramScriptPromise = null;
 

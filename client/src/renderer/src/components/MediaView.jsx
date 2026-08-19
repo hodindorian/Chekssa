@@ -1,5 +1,4 @@
 import { useRef } from "react";
-import TweetEmbed from "./TweetEmbed.jsx";
 import InstagramEmbed from "./InstagramEmbed.jsx";
 
 // Renders whatever is currently composed/received: a static image/GIF, or one
@@ -37,7 +36,10 @@ export default function MediaView({ media, autoplay = false, className = "" }) {
   }
 
   if (media.kind === "twitter") {
-    return <TweetEmbed tweetId={media.tweetId} className={className} />;
+    // Resolved to a direct CDN video URL at insert time (see
+    // twitterVideo.js) - a plain autoplaying <video>, not the official
+    // widget's full tweet card.
+    return <VideoElement className={className} src={media.videoUrl} autoplay={autoplay} />;
   }
 
   if (media.kind === "instagram") {
@@ -46,9 +48,9 @@ export default function MediaView({ media, autoplay = false, className = "" }) {
 
   if (media.kind === "local-video") {
     return (
-      <LocalVideoClip
+      <VideoElement
         className={className}
-        dataUrl={media.dataUrl}
+        src={media.dataUrl}
         start={media.start}
         end={media.end}
         autoplay={autoplay}
@@ -59,13 +61,13 @@ export default function MediaView({ media, autoplay = false, className = "" }) {
   return <img className={className} src={media.dataUrl} alt="" draggable={false} />;
 }
 
-function LocalVideoClip({ dataUrl, start = 0, end, autoplay, className }) {
+function VideoElement({ src, start = 0, end, autoplay, className }) {
   const videoRef = useRef(null);
 
   function handleLoadedMetadata() {
     const v = videoRef.current;
     if (!v) return;
-    v.currentTime = start;
+    if (start) v.currentTime = start;
     if (autoplay) v.play().catch(() => {});
   }
 
@@ -79,7 +81,7 @@ function LocalVideoClip({ dataUrl, start = 0, end, autoplay, className }) {
     <video
       ref={videoRef}
       className={className}
-      src={dataUrl}
+      src={src}
       controls={!autoplay}
       autoPlay={autoplay}
       playsInline

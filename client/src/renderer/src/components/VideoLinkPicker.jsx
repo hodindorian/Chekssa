@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MediaView from "./MediaView.jsx";
+import { resolveTweetVideo } from "../twitterVideo.js";
 
 const CLIP_SECONDS = 17;
 
@@ -17,9 +18,38 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
   const [error, setError] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  // X/Twitter has no seekable embed URL: the tweet's video has to be
+  // resolved to a direct CDN link first (see twitterVideo.js).
+  const [twitterVideo, setTwitterVideo] = useState(null);
+  const [twitterLoading, setTwitterLoading] = useState(false);
+  const [twitterError, setTwitterError] = useState(null);
+
+  useEffect(() => {
+    if (parsed?.platform !== "twitter") return undefined;
+    let cancelled = false;
+    setTwitterVideo(null);
+    setTwitterError(null);
+    setTwitterLoading(true);
+    resolveTweetVideo(parsed.tweetId)
+      .then((result) => {
+        if (!cancelled) setTwitterVideo(result);
+      })
+      .catch((err) => {
+        if (!cancelled) setTwitterError(err.message || "Impossible de récupérer la vidéo de ce tweet.");
+      })
+      .finally(() => {
+        if (!cancelled) setTwitterLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [parsed?.platform, parsed?.tweetId]);
+
   function handleUrlChange(value) {
     setUrlInput(value);
     setShowPreview(false);
+    setTwitterVideo(null);
+    setTwitterError(null);
     const result = parseVideoUrl(value);
     if (!result) {
       setParsed(null);
@@ -34,15 +64,16 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
   const startSec = Math.max(0, Math.floor(start) || 0);
   const endSec = startSec + CLIP_SECONDS;
   const seekable = parsed?.platform === "youtube";
+  const canInsert = parsed && (parsed.platform !== "twitter" || !!twitterVideo);
 
   function insert() {
-    if (!parsed) return;
+    if (!canInsert) return;
     if (parsed.platform === "youtube") {
       onInsert({ kind: "youtube", videoId: parsed.videoId, start: startSec, end: endSec, aspectRatio: parsed.aspectRatio });
     } else if (parsed.platform === "tiktok") {
       onInsert({ kind: "tiktok", videoId: parsed.videoId, aspectRatio: parsed.aspectRatio });
     } else if (parsed.platform === "twitter") {
-      onInsert({ kind: "twitter", tweetId: parsed.tweetId, aspectRatio: parsed.aspectRatio });
+      onInsert({ kind: "twitter", videoUrl: twitterVideo.videoUrl, aspectRatio: twitterVideo.aspectRatio });
     } else if (parsed.platform === "instagram") {
       onInsert({ kind: "instagram", postUrl: parsed.postUrl, aspectRatio: parsed.aspectRatio });
     }
@@ -54,9 +85,11 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
       : parsed.platform === "tiktok"
         ? { kind: "tiktok", videoId: parsed.videoId }
         : parsed.platform === "twitter"
-          ? { kind: "twitter", tweetId: parsed.tweetId }
+          ? twitterVideo && { kind: "twitter", videoUrl: twitterVideo.videoUrl }
           : { kind: "instagram", postUrl: parsed.postUrl }
     : null;
+
+  const previewAspectRatio = parsed?.platform === "twitter" ? twitterVideo?.aspectRatio ?? 16 / 9 : parsed?.aspectRatio;
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
@@ -92,13 +125,23 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
               </p>
             )}
 
-            <button type="button" onClick={() => setShowPreview(true)}>
-              Prévisualiser
-            </button>
-            {showPreview && (
-              <div className={`youtube-preview ${parsed.aspectRatio < 1 ? "portrait" : "landscape"}`}>
-                <MediaView media={previewMedia} autoplay={parsed.platform === "youtube" || parsed.platform === "tiktok"} />
-              </div>
+            {parsed.platform === "twitter" && twitterLoading && <p className="hint">Récupération de la vidéo…</p>}
+            {parsed.platform === "twitter" && twitterError && <p className="connection-error">{twitterError}</p>}
+
+            {previewMedia && (
+              <>
+                <button type="button" onClick={() => setShowPreview(true)}>
+                  Prévisualiser
+                </button>
+                {showPreview && (
+                  <div className={`youtube-preview ${previewAspectRatio < 1 ? "portrait" : "landscape"}`}>
+                    <MediaView
+                      media={previewMedia}
+                      autoplay={parsed.platform === "youtube" || parsed.platform === "tiktok" || parsed.platform === "twitter"}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -107,7 +150,7 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
           <button type="button" onClick={onCancel}>
             Annuler
           </button>
-          <button type="button" className="primary" disabled={!parsed} onClick={insert}>
+          <button type="button" className="primary" disabled={!canInsert} onClick={insert}>
             Insérer
           </button>
         </div>
