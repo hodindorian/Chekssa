@@ -1,7 +1,7 @@
 {
   "name": "@chekssa/client",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Chekssa - app de diffusion en live (overlay) par sessions",
   "main": "out/main/index.js",
   "author": "chekssa",
