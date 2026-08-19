@@ -30,7 +30,17 @@ export default function Overlay() {
         ×
       </button>
       <div className="overlay-image-wrap">
-        <img src={payload.imageDataUrl} alt="" draggable={false} />
+        {payload.media?.kind === "youtube" ? (
+          <iframe
+            className="overlay-youtube"
+            src={`https://www.youtube.com/embed/${payload.media.videoId}?start=${payload.media.start}&end=${payload.media.end}&autoplay=1&mute=0&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3`}
+            title="Extrait YouTube"
+            allow="autoplay; encrypted-media"
+            frameBorder="0"
+          />
+        ) : (
+          <img src={payload.media?.dataUrl} alt="" draggable={false} />
+        )}
         {payload.texts?.map((t) => (
           <span
             key={t.id}
@@ -38,6 +48,7 @@ export default function Overlay() {
             style={{
               left: `${t.xPct}%`,
               top: `${t.yPct}%`,
+              width: `${t.widthPct ?? 30}%`,
               fontSize: `${t.fontPct || 5}cqw`,
               color: t.color || "#ffffff",
               fontWeight: t.bold ? 700 : 400,

@@ -1,46 +1,82 @@
 import { useRef } from "react";
 
-export default function TextLayer({ text, containerRef, selected, onSelect, onMove, onDoubleClick }) {
-  const dragging = useRef(false);
+const MIN_WIDTH_PCT = 8;
+const DEFAULT_WIDTH_PCT = 30;
 
-  function handlePointerDown(event) {
+export default function TextLayer({ text, containerRef, selected, onSelect, onMove, onDoubleClick }) {
+  const drag = useRef(null);
+
+  function beginDrag(mode, event) {
     event.stopPropagation();
     onSelect(text.id);
-    dragging.current = true;
+    drag.current = { mode, rightPct: text.xPct + (text.widthPct ?? DEFAULT_WIDTH_PCT) };
     event.target.setPointerCapture(event.pointerId);
   }
 
   function handlePointerMove(event) {
-    if (!dragging.current || !containerRef.current) return;
+    if (!drag.current || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const xPct = clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
-    const yPct = clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
-    onMove(text.id, { xPct, yPct });
+    const px = clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
+    const py = clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
+    const { mode, rightPct } = drag.current;
+
+    if (mode === "move") {
+      onMove(text.id, { xPct: px, yPct: py });
+    } else if (mode === "e") {
+      const widthPct = clamp(px - text.xPct, MIN_WIDTH_PCT, 100 - text.xPct);
+      onMove(text.id, { widthPct });
+    } else if (mode === "w") {
+      const xPct = clamp(px, 0, rightPct - MIN_WIDTH_PCT);
+      onMove(text.id, { xPct, widthPct: rightPct - xPct });
+    }
   }
 
-  function handlePointerUp(event) {
-    dragging.current = false;
+  function endDrag(event) {
+    drag.current = null;
     event.target.releasePointerCapture?.(event.pointerId);
   }
 
   return (
-    <span
-      className={`edit-text ${selected ? "selected" : ""}`}
+    <div
+      className={`edit-text-box ${selected ? "selected" : ""}`}
       style={{
         left: `${text.xPct}%`,
         top: `${text.yPct}%`,
-        fontSize: `${text.fontPct}cqw`,
-        color: text.color,
-        fontWeight: text.bold ? 700 : 400,
-        textAlign: text.align,
+        width: `${text.widthPct ?? DEFAULT_WIDTH_PCT}%`,
       }}
-      onPointerDown={handlePointerDown}
+      onPointerDown={(event) => beginDrag("move", event)}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
+      onPointerUp={endDrag}
       onDoubleClick={() => onDoubleClick(text.id)}
     >
-      {text.content || "Texte"}
-    </span>
+      <span
+        className="edit-text"
+        style={{
+          fontSize: `${text.fontPct}cqw`,
+          color: text.color,
+          fontWeight: text.bold ? 700 : 400,
+          textAlign: text.align,
+        }}
+      >
+        {text.content || "Texte"}
+      </span>
+      {selected && (
+        <>
+          <span
+            className="resize-handle handle-w"
+            onPointerDown={(event) => beginDrag("w", event)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={endDrag}
+          />
+          <span
+            className="resize-handle handle-e"
+            onPointerDown={(event) => beginDrag("e", event)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={endDrag}
+          />
+        </>
+      )}
+    </div>
   );
 }
 

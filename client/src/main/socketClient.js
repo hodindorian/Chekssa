@@ -127,7 +127,7 @@ class SocketClient extends EventEmitter {
     return { ok: true, code };
   }
 
-  async sendBroadcast({ codes, imageDataUrl, imageAspectRatio, texts }) {
+  async sendBroadcast({ codes, media, texts }) {
     if (!this.socket?.connected) {
       return { ok: false, error: "Non connecté au serveur." };
     }
@@ -137,7 +137,7 @@ class SocketClient extends EventEmitter {
           new Promise((resolve) => {
             this.socket.emit(
               "broadcast",
-              { code: normalizeCode(code), imageDataUrl, imageAspectRatio, texts },
+              { code: normalizeCode(code), media, texts },
               (ack) => resolve({ code, ...(ack ?? { ok: false, error: "Pas de réponse du serveur." }) })
             );
           })

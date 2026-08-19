@@ -48,10 +48,11 @@ io.on("connection", (socket) => {
       ack?.({ ok: false, error: "Vous n'êtes pas connecté à cette session." });
       return;
     }
-    socket.to(code).emit("broadcast-receive", {
+    // io.to (not socket.to) so the sender also gets the overlay on their own
+    // screen, showing exactly what recipients see.
+    io.to(code).emit("broadcast-receive", {
       code,
-      imageDataUrl: payload.imageDataUrl,
-      imageAspectRatio: payload.imageAspectRatio,
+      media: payload.media,
       texts: Array.isArray(payload.texts) ? payload.texts : [],
       sentAt: Date.now(),
     });

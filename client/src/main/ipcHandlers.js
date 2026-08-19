@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { socketClient } from "./socketClient.js";
 import { closeOverlay, setOverlayExpanded } from "./overlayManager.js";
+import { store } from "./store.js";
 
 export function registerIpcHandlers() {
   ipcMain.handle("state:get", () => socketClient.getState());
@@ -13,6 +14,16 @@ export function registerIpcHandlers() {
   ipcMain.handle("settings:set-server-url", (_event, url) => {
     socketClient.connect(url);
     return socketClient.getState();
+  });
+
+  ipcMain.handle("settings:get", () => ({
+    klipyApiKey: store.get("klipyApiKey"),
+    klipyCustomerId: store.get("klipyCustomerId"),
+  }));
+
+  ipcMain.handle("settings:set-klipy-key", (_event, key) => {
+    store.set("klipyApiKey", String(key || "").trim());
+    return store.get("klipyApiKey");
   });
 
   ipcMain.handle("overlay:close", (event) => {

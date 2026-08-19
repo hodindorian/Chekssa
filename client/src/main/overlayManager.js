@@ -9,14 +9,27 @@ const EXPANDED_WIDTH = 640;
 const MIN_HEIGHT = 90;
 const MAX_HEIGHT_RATIO = 0.7; // never take more than 70% of the screen height
 
-let windows = [];
+// Only one overlay is ever on screen at a time; broadcasts that arrive while
+// it's showing wait their turn here instead of cutting it off.
+let activeEntry = null;
+let queue = [];
 
-function computeHeight(width, imageAspectRatio, display) {
-  const ratio = imageAspectRatio && imageAspectRatio > 0 ? imageAspectRatio : 16 / 9;
-  const imageHeight = width / ratio;
-  const height = Math.max(MIN_HEIGHT, imageHeight + 56); // + header/close bar allowance
+function computeHeight(width, aspectRatio, display) {
+  const ratio = aspectRatio && aspectRatio > 0 ? aspectRatio : 16 / 9;
+  const mediaHeight = width / ratio;
+  const height = Math.max(MIN_HEIGHT, mediaHeight + 56); // + header/close bar allowance
   const maxHeight = display.workAreaSize.height * MAX_HEIGHT_RATIO;
   return Math.min(height, maxHeight);
+}
+
+function autoCloseDuration(payload) {
+  const base = store.get("overlayDurationMs");
+  if (payload?.media?.kind === "youtube") {
+    const clipMs = ((payload.media.end ?? 0) - (payload.media.start ?? 0)) * 1000;
+    // Let the clip play out in full before moving on to the next queued item.
+    return Math.max(base, clipMs + 1500);
+  }
+  return base;
 }
 
 function boundsForDisplay(display, width, height) {
@@ -29,17 +42,9 @@ function boundsForDisplay(display, width, height) {
   };
 }
 
-function closeAll() {
-  for (const entry of windows) {
-    clearTimeout(entry.timer);
-    if (!entry.win.isDestroyed()) entry.win.close();
-  }
-  windows = [];
-}
-
 function createOverlayForDisplay(display, payload) {
   const width = COMPACT_WIDTH;
-  const height = computeHeight(width, payload.imageAspectRatio, display);
+  const height = computeHeight(width, payload.media?.aspectRatio, display);
   const bounds = boundsForDisplay(display, width, height);
 
   const win = new BrowserWindow({
@@ -60,6 +65,8 @@ function createOverlayForDisplay(display, payload) {
     webPreferences: {
       preload: join(__dirname, "../preload/overlay.js"),
       sandbox: false,
+      // YouTube clips must start playing on their own, with no click to trigger them.
+      autoplayPolicy: "no-user-gesture-required",
     },
   });
 
@@ -67,10 +74,11 @@ function createOverlayForDisplay(display, payload) {
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   const entry = { win, display, expanded: false, payload, timer: null };
-  windows.push(entry);
+  activeEntry = entry;
 
   win.on("closed", () => {
-    windows = windows.filter((e) => e !== entry);
+    if (activeEntry === entry) activeEntry = null;
+    advanceQueue();
   });
 
   win.once("ready-to-show", () => {
@@ -93,23 +101,29 @@ function createOverlayForDisplay(display, payload) {
 
 function scheduleAutoClose(entry) {
   clearTimeout(entry.timer);
-  const duration = store.get("overlayDurationMs");
   entry.timer = setTimeout(() => {
     if (!entry.win.isDestroyed()) entry.win.close();
-  }, duration);
+  }, autoCloseDuration(entry.payload));
 }
 
-export function showBroadcast(payload) {
-  closeAll();
-  // Show on a single screen only: whichever one the cursor is currently on,
-  // since that's the one the recipient is most likely actually looking at.
+function advanceQueue() {
+  if (activeEntry || queue.length === 0) return;
+  const payload = queue.shift();
+  // Pick the display fresh for each item: the cursor may have moved since
+  // it was queued.
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   createOverlayForDisplay(display, payload);
 }
 
+export function showBroadcast(payload) {
+  queue.push(payload);
+  advanceQueue();
+}
+
 function entryForSender(webContents) {
+  if (!activeEntry) return null;
   const win = BrowserWindow.fromWebContents(webContents);
-  return windows.find((e) => e.win === win);
+  return activeEntry.win === win ? activeEntry : null;
 }
 
 export function closeOverlay(webContents) {
@@ -124,7 +138,7 @@ export function setOverlayExpanded(webContents, expanded) {
   clearTimeout(entry.timer);
   entry.expanded = expanded;
   const width = expanded ? EXPANDED_WIDTH : COMPACT_WIDTH;
-  const height = computeHeight(width, entry.payload.imageAspectRatio, entry.display);
+  const height = computeHeight(width, entry.payload.media?.aspectRatio, entry.display);
   const bounds = boundsForDisplay(entry.display, width, height);
   entry.win.setBounds(bounds);
   entry.win.webContents.send("overlay:expanded-changed", expanded);
