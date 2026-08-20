@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Renders whatever is currently composed/received: a static image/GIF, or one
 // of the supported video kinds. `autoplay` distinguishes the overlay (plays
 // immediately, no user gesture) from the composer canvas (stays paused/
 // controllable so editing isn't interrupted by playback).
-export default function MediaView({ media, autoplay = false, className = "" }) {
+export default function MediaView({ media, autoplay = false, className = "", onEnded }) {
   if (!media) return null;
 
   if (media.kind === "youtube") {
@@ -21,7 +21,7 @@ export default function MediaView({ media, autoplay = false, className = "" }) {
   }
 
   if (media.kind === "tiktok") {
-    return <TikTokPlayer className={className} videoId={media.videoId} autoplay={autoplay} />;
+    return <TikTokPlayer className={className} videoId={media.videoId} autoplay={autoplay} onEnded={onEnded} />;
   }
 
   if (media.kind === "twitter") {
@@ -114,7 +114,7 @@ function VideoElement({ src, start = 0, end, autoplay, className }) {
 // starts muted regardless, so unmuting needs its documented postMessage API
 // (https://developers.tiktok.com/doc/embed-player). Retried a few times
 // since we can't know exactly when the player's own listener attaches.
-function TikTokPlayer({ videoId, autoplay, className }) {
+function TikTokPlayer({ videoId, autoplay, className, onEnded }) {
   const iframeRef = useRef(null);
 
   function sendCommand(type, value) {
@@ -130,6 +130,22 @@ function TikTokPlayer({ videoId, autoplay, className }) {
       }, delay);
     }
   }
+
+  // The overlay otherwise only knows to close itself after a flat 60s
+  // fallback (no way to know a TikTok clip's real length up front) - most
+  // clips are much shorter than that and just sit there finished, so close
+  // as soon as the player itself reports playback has ended instead of
+  // waiting out the fallback.
+  useEffect(() => {
+    if (!onEnded) return undefined;
+    function handleMessage(event) {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      if (!event.data?.["x-tiktok-player"]) return;
+      if (event.data.type === "onStateChange" && event.data.value === 0) onEnded();
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onEnded]);
 
   return (
     <iframe

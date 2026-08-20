@@ -31,7 +31,12 @@ export default function Overlay() {
         ×
       </button>
       <div className="overlay-image-wrap">
-        <MediaView media={payload.media} autoplay className="overlay-media" />
+        <MediaView
+          media={payload.media}
+          autoplay
+          className="overlay-media"
+          onEnded={() => window.chekssaOverlay.close()}
+        />
         {payload.texts?.map((t) => (
           <span
             key={t.id}
