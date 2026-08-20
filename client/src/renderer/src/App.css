@@ -411,6 +411,19 @@ video.canvas-media {
   font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif;
 }
 
+.edit-text-input {
+  display: block;
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
 .resize-handle {
   position: absolute;
   top: 50%;
@@ -621,4 +634,62 @@ video.canvas-media {
   border-radius: 3px;
   cursor: nwse-resize;
   touch-action: none;
+}
+
+.crop-modal {
+  width: auto;
+  max-width: 90vw;
+}
+
+.crop-box {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.crop-rect {
+  position: absolute;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 999px color-mix(in srgb, #000 55%, transparent);
+  cursor: move;
+  touch-action: none;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border: 1px solid var(--accent-contrast);
+  border-radius: 3px;
+  touch-action: none;
+}
+
+.crop-handle-nw {
+  left: -7px;
+  top: -7px;
+  cursor: nwse-resize;
+}
+
+.crop-handle-se {
+  right: -7px;
+  bottom: -7px;
+  cursor: nwse-resize;
+}
+
+.crop-handle-ne {
+  right: -7px;
+  top: -7px;
+  cursor: nesw-resize;
+}
+
+.crop-handle-sw {
+  left: -7px;
+  bottom: -7px;
+  cursor: nesw-resize;
 }

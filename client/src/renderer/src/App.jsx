@@ -6,6 +6,7 @@ import GifPicker from "./components/GifPicker.jsx";
 import VideoLinkPicker from "./components/VideoLinkPicker.jsx";
 import LocalVideoPicker from "./components/LocalVideoPicker.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
+import ImageCropper from "./components/ImageCropper.jsx";
 import { readFileAsDataUrl, loadImage, resizeImageDataUrl } from "./imageUtils.js";
 import logo from "./assets/logo.png";
 
@@ -37,6 +38,7 @@ export default function App() {
   const [klipyCustomerId, setKlipyCustomerId] = useState("");
   const [overlayPosition, setOverlayPosition] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [cropSource, setCropSource] = useState(null);
   const [appVersion, setAppVersion] = useState("");
   const [updateStatus, setUpdateStatus] = useState(null);
   const [status, setStatus] = useState(null);
@@ -173,14 +175,33 @@ export default function App() {
       return;
     }
     const dataUrl = await readFileAsDataUrl(blob);
-    const img = await loadImage(dataUrl);
-    setMedia({
-      kind: "image",
-      dataUrl,
-      aspectRatio: img.naturalWidth / img.naturalHeight,
-      isAnimated,
-      durationMs: MAX_IMAGE_DISPLAY_MS,
-    });
+    // Cropping flattens to a single frame, which would kill the animation -
+    // only static images go through the cropper, GIFs land straight on the canvas.
+    if (isAnimated) {
+      const img = await loadImage(dataUrl);
+      replaceMedia({
+        kind: "image",
+        dataUrl,
+        aspectRatio: img.naturalWidth / img.naturalHeight,
+        isAnimated: true,
+        durationMs: MAX_IMAGE_DISPLAY_MS,
+      });
+      return;
+    }
+    setCropSource({ dataUrl, isNewImport: true });
+  }
+
+  function handleCropConfirm(croppedDataUrl, aspectRatio) {
+    const newMedia = { kind: "image", dataUrl: croppedDataUrl, aspectRatio, isAnimated: false, durationMs: MAX_IMAGE_DISPLAY_MS };
+    // Cropping the image already on the canvas ("Rogner l'image") isn't a
+    // new source - keep the texts in that case, only clear them when this
+    // crop is the last step of importing a brand new image.
+    if (cropSource?.isNewImport) {
+      replaceMedia(newMedia);
+    } else {
+      setMedia(newMedia);
+    }
+    setCropSource(null);
   }
 
   async function handlePickImage(event) {
@@ -192,7 +213,7 @@ export default function App() {
 
   async function handleGifPicked(blob, aspectRatio) {
     const dataUrl = await readFileAsDataUrl(blob);
-    setMedia({ kind: "image", dataUrl, aspectRatio, isAnimated: true, durationMs: MAX_IMAGE_DISPLAY_MS });
+    replaceMedia({ kind: "image", dataUrl, aspectRatio, isAnimated: true, durationMs: MAX_IMAGE_DISPLAY_MS });
     setGifPickerOpen(false);
   }
 
@@ -200,13 +221,24 @@ export default function App() {
     setMedia((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
+  // Texts are positioned/sized for whatever media they were added on top of -
+  // swapping in a different image/GIF/video makes them meaningless (wrong
+  // spot, wrong aspect ratio), so start fresh whenever the source changes.
+  // Adjusting the *current* media (duration slider, re-cropping) goes
+  // through updateMedia/handleCropConfirm's own path instead, which keep them.
+  function replaceMedia(newMedia) {
+    setMedia(newMedia);
+    setTexts([]);
+    setSelectedId(null);
+  }
+
   function handleVideoLinkInserted(videoMedia) {
-    setMedia(videoMedia);
+    replaceMedia(videoMedia);
     setVideoLinkPickerOpen(false);
   }
 
   function handleLocalVideoInserted(videoMedia) {
-    setMedia(videoMedia);
+    replaceMedia(videoMedia);
     setLocalVideoPickerOpen(false);
   }
 
@@ -351,6 +383,11 @@ export default function App() {
             <button type="button" onClick={addText} disabled={!media}>
               Ajouter un texte
             </button>
+            {media?.kind === "image" && !media.isAnimated && (
+              <button type="button" onClick={() => setCropSource({ dataUrl: media.dataUrl, isNewImport: false })}>
+                Rogner l'image
+              </button>
+            )}
             <p className="hint">Astuce : Ctrl+V colle directement une image ou un GIF copié.</p>
             <p className="hint">Liens vidéo supportés : YouTube, TikTok, X/Twitter.</p>
           </div>
@@ -471,6 +508,10 @@ export default function App() {
 
       {localVideoPickerOpen && (
         <LocalVideoPicker onInsert={handleLocalVideoInserted} onCancel={() => setLocalVideoPickerOpen(false)} />
+      )}
+
+      {cropSource && (
+        <ImageCropper dataUrl={cropSource.dataUrl} onConfirm={handleCropConfirm} onCancel={() => setCropSource(null)} />
       )}
 
       {settingsOpen && overlayPosition && (
