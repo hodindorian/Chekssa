@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import MediaView from "./MediaView.jsx";
 
-const CLIP_SECONDS = 17;
+const CLIP_SECONDS = 10;
 
 const PLATFORM_LABELS = {
   youtube: "YouTube",
@@ -161,7 +161,7 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
             ) : (
               <p className="hint">
                 {PLATFORM_LABELS[parsed.platform]} ne permet pas de choisir un instant précis : la vidéo est jouée
-                depuis le début, l'affichage dure toute sa longueur (60s max).
+                depuis le début, l'affichage dure toute sa longueur ({CLIP_SECONDS}s max).
               </p>
             )}
 

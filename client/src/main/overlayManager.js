@@ -37,7 +37,8 @@ function computeHeight(width, aspectRatio, display) {
 // instead of an explicit chosen start/end range - stops one long video from
 // blocking the queue for everyone else's memes. Also used as the flat
 // fallback duration for tiktok's iframe, which has no duration available.
-const MAX_VIDEO_MS = 60000;
+// Local MP4 files keep their own longer clip length (see LocalVideoPicker.jsx).
+const MAX_VIDEO_MS = 10000;
 // Images/GIFs let the sender pick a display time in the composer, capped
 // client-side too - re-capped here in case an older/other client sends more.
 const MAX_IMAGE_MS = 10000;
