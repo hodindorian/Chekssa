@@ -1,8 +1,15 @@
-import { ipcMain, BrowserWindow, screen } from "electron";
+import { ipcMain, BrowserWindow, screen, app } from "electron";
 import { socketClient } from "./socketClient.js";
 import { closeOverlay, setOverlayExpanded } from "./overlayManager.js";
 import { store } from "./store.js";
-import { resolveTwitterVideo } from "./videoResolvers.js";
+import { resolveTwitterVideo, checkYoutubeEmbeddable } from "./videoResolvers.js";
+import { autoUpdater } from "./updater.js";
+
+function clampFraction(value, min = 0, max = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
+}
 
 export function registerIpcHandlers() {
   ipcMain.handle("state:get", () => socketClient.getState());
@@ -20,6 +27,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("settings:get", () => ({
     klipyApiKey: store.get("klipyApiKey"),
     klipyCustomerId: store.get("klipyCustomerId"),
+    overlayPosition: store.get("overlayPosition"),
   }));
 
   ipcMain.handle("settings:set-klipy-key", (_event, key) => {
@@ -27,7 +35,33 @@ export function registerIpcHandlers() {
     return store.get("klipyApiKey");
   });
 
+  ipcMain.handle("settings:set-overlay-position", (_event, position) => {
+    const xPct = clampFraction(position?.xPct);
+    const yPct = clampFraction(position?.yPct);
+    const widthPct = clampFraction(position?.widthPct, 0.08, 0.6);
+    const next = { xPct, yPct, widthPct };
+    store.set("overlayPosition", next);
+    return next;
+  });
+
   ipcMain.handle("video:resolve-twitter", (_event, tweetId) => resolveTwitterVideo(tweetId));
+  ipcMain.handle("video:check-youtube", (_event, videoId) => checkYoutubeEmbeddable(videoId));
+
+  ipcMain.handle("update:get-version", () => app.getVersion());
+
+  ipcMain.handle("update:check", () => {
+    if (!app.isPackaged) return { ok: false, error: "Pas de vérification de mise à jour en mode développement." };
+    return autoUpdater.checkForUpdates().then(
+      () => ({ ok: true }),
+      (err) => ({ ok: false, error: err?.message || String(err) })
+    );
+  });
+
+  ipcMain.handle("update:download", () => autoUpdater.downloadUpdate());
+
+  ipcMain.handle("update:install", () => {
+    autoUpdater.quitAndInstall();
+  });
 
   // The sidebar no longer scrolls (it used to fight with the send-status
   // toast and slider controls for a jumpy, unreliable scrollbar) - instead

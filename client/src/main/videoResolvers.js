@@ -49,3 +49,30 @@ export async function resolveTwitterVideo(tweetId) {
     durationMs: media.video_info?.duration_millis || null,
   };
 }
+
+// --- YouTube -------------------------------------------------------------
+// The iframe embed itself gives no JS-visible error when a video refuses to
+// play inside it (deleted, private, or - most commonly - embedding disabled
+// by the uploader): the request still succeeds, YouTube's own player just
+// renders "Video unavailable" inside the cross-origin frame with nothing we
+// can detect from the outside. The public oEmbed endpoint answers the same
+// question (does YouTube consider this video embeddable right now) as a
+// plain HTTP status, so we can show a clear message instead of a silent
+// broken frame. Same CORS reasoning as the Twitter resolver above - done
+// from the main process.
+export async function checkYoutubeEmbeddable(videoId) {
+  const res = await fetch(
+    `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`,
+    { headers: { "User-Agent": BROWSER_UA } }
+  );
+  if (res.status === 401 || res.status === 403) {
+    throw new Error("Cette vidéo ne peut pas être intégrée (l'auteur a désactivé l'intégration).");
+  }
+  if (res.status === 404) {
+    throw new Error("Vidéo introuvable (supprimée, privée ou lien invalide).");
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de vérifier cette vidéo YouTube (${res.status}).`);
+  }
+  return { ok: true };
+}

@@ -5,6 +5,7 @@ import SendDialog from "./components/SendDialog.jsx";
 import GifPicker from "./components/GifPicker.jsx";
 import VideoLinkPicker from "./components/VideoLinkPicker.jsx";
 import LocalVideoPicker from "./components/LocalVideoPicker.jsx";
+import SettingsModal from "./components/SettingsModal.jsx";
 import { readFileAsDataUrl, loadImage, resizeImageDataUrl } from "./imageUtils.js";
 import logo from "./assets/logo.png";
 
@@ -19,9 +20,11 @@ const MAX_GIF_MB = 40;
 const MAX_IMAGE_DISPLAY_MS = 10000;
 // Must match .sidebar's top+bottom padding in App.css.
 const SIDEBAR_VERTICAL_PADDING = 36;
+const THEME_STORAGE_KEY = "chekssa-theme";
 
 export default function App() {
-  const [state, setState] = useState({ connected: false, sessionCodes: [], serverUrl: "" });
+  const [state, setState] = useState({ connected: false, sessionCodes: [], sessionCounts: {}, serverUrl: "" });
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) || "dark");
   // { kind: "image", dataUrl, aspectRatio, isAnimated } | { kind: "youtube", videoId, start, end, aspectRatio }
   const [media, setMedia] = useState(null);
   const [texts, setTexts] = useState([]);
@@ -32,6 +35,10 @@ export default function App() {
   const [localVideoPickerOpen, setLocalVideoPickerOpen] = useState(false);
   const [klipyApiKey, setKlipyApiKey] = useState("");
   const [klipyCustomerId, setKlipyCustomerId] = useState("");
+  const [overlayPosition, setOverlayPosition] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
+  const [updateStatus, setUpdateStatus] = useState(null);
   const [status, setStatus] = useState(null);
   const fileInputRef = useRef(null);
   const sidebarContentRef = useRef(null);
@@ -43,11 +50,58 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
+
+  useEffect(() => {
     window.chekssa.getSettings().then((s) => {
       setKlipyApiKey(s.klipyApiKey || "");
       setKlipyCustomerId(s.klipyCustomerId || "");
+      setOverlayPosition(s.overlayPosition || { xPct: 0.72, yPct: 0.02, widthPct: 0.18 });
     });
   }, []);
+
+  async function handleSaveOverlayPosition(position) {
+    const saved = await window.chekssa.setOverlayPosition(position);
+    setOverlayPosition(saved);
+  }
+
+  useEffect(() => {
+    window.chekssa.getAppVersion().then(setAppVersion);
+  }, []);
+
+  useEffect(() => {
+    return window.chekssa.onUpdateStatus((next) => {
+      setUpdateStatus(next);
+      // Surface the automatic startup check even when Settings isn't open -
+      // otherwise a user who never opens the gear icon would never know.
+      if (next.state === "available") {
+        setStatus(`Une nouvelle version (v${next.version}) est disponible. Ouvre les paramètres pour l'installer.`);
+      }
+      // "Un clic pour mettre à jour" - once the download finishes, install
+      // and restart automatically instead of making the user click twice.
+      if (next.state === "downloaded") {
+        window.chekssa.installUpdate();
+      }
+    });
+  }, []);
+
+  function handleCheckUpdates() {
+    window.chekssa.checkForUpdates();
+  }
+
+  function handleDownloadUpdate() {
+    window.chekssa.downloadUpdate();
+  }
+
+  function handleInstallUpdate() {
+    window.chekssa.installUpdate();
+  }
 
   useEffect(() => {
     if (!status) return;
@@ -244,12 +298,31 @@ export default function App() {
           <div className="app-brand">
             <img src={logo} alt="" className="app-logo" />
             <h1>Chekssa</h1>
+            <div className="brand-actions">
+              <button
+                type="button"
+                className="theme-toggle"
+                onClick={() => setSettingsOpen(true)}
+                title="Paramètres"
+              >
+                ⚙️
+              </button>
+              <button
+                type="button"
+                className="theme-toggle"
+                onClick={toggleTheme}
+                title={theme === "dark" ? "Passer en thème clair" : "Passer en thème sombre"}
+              >
+                {theme === "dark" ? "☀️" : "🌙"}
+              </button>
+            </div>
           </div>
           <SessionPanel
             connected={state.connected}
             serverUrl={state.serverUrl}
             lastError={state.lastError}
             sessionCodes={state.sessionCodes}
+            sessionCounts={state.sessionCounts}
             onJoin={handleJoin}
             onLeave={handleLeave}
           />
@@ -398,6 +471,19 @@ export default function App() {
 
       {localVideoPickerOpen && (
         <LocalVideoPicker onInsert={handleLocalVideoInserted} onCancel={() => setLocalVideoPickerOpen(false)} />
+      )}
+
+      {settingsOpen && overlayPosition && (
+        <SettingsModal
+          overlayPosition={overlayPosition}
+          onSaveOverlayPosition={handleSaveOverlayPosition}
+          appVersion={appVersion}
+          updateStatus={updateStatus}
+          onCheckUpdates={handleCheckUpdates}
+          onDownloadUpdate={handleDownloadUpdate}
+          onInstallUpdate={handleInstallUpdate}
+          onCancel={() => setSettingsOpen(false)}
+        />
       )}
     </div>
   );

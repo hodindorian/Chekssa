@@ -6,11 +6,32 @@
   color-scheme: dark;
   --bg: #16171b;
   --panel: #1e2025;
+  --surface: #14161a;
+  --surface-2: #262930;
+  --surface-2-hover: #2f333b;
   --border: #2c2f36;
   --text: #e8e9ec;
   --muted: #9a9ea7;
   --accent: #5b8def;
+  --accent-contrast: #0b1220;
   --danger: #e05c5c;
+  --success: #4cc38a;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f3f5;
+  --panel: #ffffff;
+  --surface: #eef0f3;
+  --surface-2: #e6e8ec;
+  --surface-2-hover: #dadde3;
+  --border: #d7dae0;
+  --text: #1a1c20;
+  --muted: #5b6270;
+  --accent: #3667d6;
+  --accent-contrast: #ffffff;
+  --danger: #c73e3e;
+  --success: #2e9e69;
 }
 
 html,
@@ -73,6 +94,18 @@ body,
   object-fit: cover;
 }
 
+.brand-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.theme-toggle {
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+}
+
 .sidebar h1 {
   font-size: 20px;
   margin: 0;
@@ -90,14 +123,14 @@ button {
   font: inherit;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #262930;
+  background: var(--surface-2);
   color: var(--text);
   padding: 8px 12px;
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background: #2f333b;
+  background: var(--surface-2-hover);
 }
 
 button:disabled {
@@ -108,7 +141,7 @@ button:disabled {
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0b1220;
+  color: var(--accent-contrast);
   font-weight: 600;
 }
 
@@ -119,7 +152,7 @@ button.danger {
 input,
 textarea {
   font: inherit;
-  background: #14161a;
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 6px;
@@ -180,10 +213,10 @@ input[type="range"] {
   border-radius: 50%;
 }
 .dot-on {
-  background: #4cc38a;
+  background: var(--success);
 }
 .dot-off {
-  background: #e05c5c;
+  background: var(--danger);
 }
 
 .session-join-form {
@@ -192,6 +225,11 @@ input[type="range"] {
 }
 .session-join-form input {
   flex: 1;
+  min-width: 0;
+}
+.session-join-form button {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .session-list {
@@ -207,11 +245,15 @@ input[type="range"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #14161a;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 13px;
+}
+
+.session-count {
+  color: var(--muted);
 }
 
 .session-empty {
@@ -229,7 +271,7 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #14161a;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px;
@@ -376,7 +418,7 @@ video.canvas-media {
   height: 26px;
   margin-top: -13px;
   background: var(--accent);
-  border: 1px solid #0b1220;
+  border: 1px solid var(--accent-contrast);
   border-radius: 3px;
   cursor: ew-resize;
   touch-action: none;
@@ -469,7 +511,7 @@ video.canvas-media {
   border-radius: 6px;
   overflow: hidden;
   aspect-ratio: 1;
-  background: #14161a;
+  background: var(--surface);
 }
 
 .gif-item img {
@@ -527,4 +569,56 @@ video.canvas-media {
 
 .youtube-preview video {
   object-fit: contain;
+}
+
+.settings-modal {
+  width: auto;
+  max-width: 90vw;
+}
+
+.settings-section {
+  margin-bottom: 18px;
+}
+
+.settings-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settings-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.screen-preview {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.notif-preview {
+  position: absolute;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  cursor: move;
+  touch-action: none;
+}
+
+.notif-resize-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border: 1px solid var(--accent-contrast);
+  border-radius: 3px;
+  cursor: nwse-resize;
+  touch-action: none;
 }

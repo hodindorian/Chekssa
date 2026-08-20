@@ -13,5 +13,10 @@ export const store = new Store({
     // Klipy asks for a stable per-installation id (not personal data) to
     // keep search results consistent for a given "user" across requests.
     klipyCustomerId: randomUUID(),
+    // Where the overlay popup appears on this user's screen, as fractions
+    // of the display's usable work area - so it scales sensibly across
+    // different monitor sizes instead of a fixed pixel offset. Defaults to
+    // roughly the old hardcoded top-right corner behavior.
+    overlayPosition: { xPct: 0.72, yPct: 0.02, widthPct: 0.18 },
   },
 });

@@ -54,6 +54,33 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
     };
   }, [parsed?.platform, parsed?.tweetId]);
 
+  // The iframe embed gives no visible error when YouTube itself refuses to
+  // play a video inside it (embedding disabled by the uploader, deleted,
+  // private...) - it just silently shows "Video unavailable" with nothing we
+  // can detect. Ask the oEmbed endpoint up front instead (see
+  // videoResolvers.js) so we can show a clear reason rather than a
+  // confusing blank/broken preview.
+  const [youtubeChecking, setYoutubeChecking] = useState(false);
+  const [youtubeError, setYoutubeError] = useState(null);
+
+  useEffect(() => {
+    if (parsed?.platform !== "youtube") return undefined;
+    let cancelled = false;
+    setYoutubeError(null);
+    setYoutubeChecking(true);
+    window.chekssa
+      .checkYoutubeEmbeddable(parsed.videoId)
+      .catch((err) => {
+        if (!cancelled) setYoutubeError(cleanIpcError(err, "Cette vidéo YouTube n'est pas disponible."));
+      })
+      .finally(() => {
+        if (!cancelled) setYoutubeChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [parsed?.platform, parsed?.videoId]);
+
   function handleUrlChange(value) {
     setUrlInput(value);
     setShowPreview(false);
@@ -73,7 +100,10 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
   const startSec = Math.max(0, Math.floor(start) || 0);
   const endSec = startSec + CLIP_SECONDS;
   const seekable = parsed?.platform === "youtube";
-  const canInsert = parsed && (parsed.platform !== "twitter" || !!twitterVideo);
+  const canInsert =
+    parsed &&
+    (parsed.platform !== "twitter" || !!twitterVideo) &&
+    (parsed.platform !== "youtube" || (!youtubeChecking && !youtubeError));
 
   function insert() {
     if (!canInsert) return;
@@ -93,7 +123,7 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
 
   const previewMedia = parsed
     ? parsed.platform === "youtube"
-      ? { kind: "youtube", videoId: parsed.videoId, start: startSec, end: endSec }
+      ? !youtubeChecking && !youtubeError && { kind: "youtube", videoId: parsed.videoId, start: startSec, end: endSec }
       : parsed.platform === "tiktok"
         ? { kind: "tiktok", videoId: parsed.videoId }
         : twitterVideo && { kind: "twitter", videoUrl: twitterVideo.videoUrl }
@@ -137,6 +167,9 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
 
             {parsed.platform === "twitter" && twitterLoading && <p className="hint">Récupération de la vidéo…</p>}
             {parsed.platform === "twitter" && twitterError && <p className="connection-error">{twitterError}</p>}
+
+            {parsed.platform === "youtube" && youtubeChecking && <p className="hint">Vérification de la vidéo…</p>}
+            {parsed.platform === "youtube" && youtubeError && <p className="connection-error">{youtubeError}</p>}
 
             {previewMedia && (
               <>

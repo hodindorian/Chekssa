@@ -2,6 +2,9 @@ node_modules/
 out/
 dist/
 build/
+# electron-builder's buildResources dir (client/build/) holds real,
+# committed icon assets - not build output, despite the name.
+!client/build/
 *.log
 .DS_Store
 .env

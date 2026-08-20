@@ -8,6 +8,7 @@ import { registerIpcHandlers } from "./ipcHandlers.js";
 import { showBroadcast } from "./overlayManager.js";
 import { startLocalServer, getLocalServerPort } from "./localServer.js";
 import { stripVideoCdnReferrer } from "./stripVideoReferrer.js";
+import { autoUpdater } from "./updater.js";
 
 let mainWindow = null;
 let tray = null;
@@ -84,7 +85,35 @@ if (!gotLock) {
     });
     socketClient.connect(store.get("serverUrl"));
 
+    autoUpdater.on("checking-for-update", () => {
+      mainWindow?.webContents.send("update:status", { state: "checking" });
+    });
+    autoUpdater.on("update-available", (info) => {
+      mainWindow?.webContents.send("update:status", { state: "available", version: info.version });
+    });
+    autoUpdater.on("update-not-available", () => {
+      mainWindow?.webContents.send("update:status", { state: "not-available" });
+    });
+    autoUpdater.on("download-progress", (progress) => {
+      mainWindow?.webContents.send("update:status", { state: "downloading", progress: Math.round(progress.percent) });
+    });
+    autoUpdater.on("update-downloaded", (info) => {
+      mainWindow?.webContents.send("update:status", { state: "downloaded", version: info.version });
+    });
+    autoUpdater.on("error", (err) => {
+      mainWindow?.webContents.send("update:status", { state: "error", error: err?.message || String(err) });
+    });
+
     mainWindow = createMainWindow();
+
+    // Only in a real packaged build: electron-updater needs the
+    // app-update.yml electron-builder generates at package time, which
+    // doesn't exist when just running from source.
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates().catch(() => {
+        // Already surfaced to the renderer via the 'error' listener above.
+      });
+    }
 
     tray = createTray({
       onOpen: () => showMainWindow(),

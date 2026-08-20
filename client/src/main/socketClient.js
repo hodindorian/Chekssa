@@ -33,6 +33,10 @@ class SocketClient extends EventEmitter {
     this.socket = null;
     this.connected = false;
     this.lastError = null;
+    // { CODE: count } - how many sockets (across everyone's devices, app
+    // open or just running in the tray) are currently in each of our
+    // joined sessions. Server-pushed on every join/leave/disconnect.
+    this.sessionCounts = {};
   }
 
   get serverUrl() {
@@ -48,6 +52,7 @@ class SocketClient extends EventEmitter {
       serverUrl: this.serverUrl,
       connected: this.connected,
       sessionCodes: this.sessionCodes,
+      sessionCounts: this.sessionCounts,
       lastError: this.lastError,
     };
   }
@@ -80,6 +85,13 @@ class SocketClient extends EventEmitter {
     socket.on("disconnect", (reason) => {
       this.connected = false;
       this.lastError = reason;
+      // Stale once disconnected - fresh counts arrive again as we rejoin on reconnect.
+      this.sessionCounts = {};
+      this.emitStateChanged();
+    });
+
+    socket.on("session-count", ({ code, count }) => {
+      this.sessionCounts = { ...this.sessionCounts, [code]: count };
       this.emitStateChanged();
     });
 
@@ -119,6 +131,10 @@ class SocketClient extends EventEmitter {
     const code = normalizeCode(rawCode);
     const codes = this.sessionCodes.filter((c) => c !== code);
     store.set("sessionCodes", codes);
+    // Once we leave, the server stops sending us updates for this room, so
+    // the count would otherwise stay frozen at its last known value.
+    const { [code]: _removed, ...rest } = this.sessionCounts;
+    this.sessionCounts = rest;
     this.emitStateChanged();
 
     if (this.socket?.connected) {

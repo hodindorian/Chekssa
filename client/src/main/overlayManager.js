@@ -4,9 +4,10 @@ import { is } from "./env.js";
 import { store } from "./store.js";
 import { getLocalServerPort } from "./localServer.js";
 
-const MARGIN = 16;
-const COMPACT_WIDTH = 340;
-const EXPANDED_WIDTH = 640;
+const MIN_WIDTH = 260;
+const MAX_WIDTH = 700;
+// Preserves the old compact->expanded ratio (was a fixed 340 -> 640).
+const EXPANDED_SCALE = 640 / 340;
 const MIN_HEIGHT = 90;
 const MAX_HEIGHT_RATIO = 0.7; // never take more than 70% of the screen height
 
@@ -14,6 +15,15 @@ const MAX_HEIGHT_RATIO = 0.7; // never take more than 70% of the screen height
 // it's showing wait their turn here instead of cutting it off.
 let activeEntry = null;
 let queue = [];
+
+// The user picks this in the "Position des notifications" settings modal
+// (client/src/renderer/src/components/OverlayPositionPicker.jsx) - stored
+// as fractions of the screen so it scales across monitor sizes.
+function getCompactWidth(display) {
+  const { widthPct } = store.get("overlayPosition");
+  const raw = display.workAreaSize.width * widthPct;
+  return Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, raw)));
+}
 
 function computeHeight(width, aspectRatio, display) {
   const ratio = aspectRatio && aspectRatio > 0 ? aspectRatio : 16 / 9;
@@ -56,17 +66,23 @@ function autoCloseDuration(payload) {
 }
 
 function boundsForDisplay(display, width, height) {
-  const { x, y, width: workWidth } = display.workArea;
+  const { x, y, width: workWidth, height: workHeight } = display.workArea;
+  const { xPct, yPct } = store.get("overlayPosition");
+  const left = x + xPct * workWidth;
+  const top = y + yPct * workHeight;
+  // Clamp so the box always stays fully on-screen, even if it was
+  // positioned near an edge and then grew (e.g. on expand) or the user
+  // moved to a smaller monitor since choosing this spot.
   return {
-    x: Math.round(x + workWidth - width - MARGIN),
-    y: Math.round(y + MARGIN),
+    x: Math.round(Math.min(Math.max(left, x), x + workWidth - width)),
+    y: Math.round(Math.min(Math.max(top, y), y + workHeight - height)),
     width: Math.round(width),
     height: Math.round(height),
   };
 }
 
 function createOverlayForDisplay(display, payload) {
-  const width = COMPACT_WIDTH;
+  const width = getCompactWidth(display);
   const height = computeHeight(width, payload.media?.aspectRatio, display);
   const bounds = boundsForDisplay(display, width, height);
 
@@ -160,7 +176,8 @@ export function setOverlayExpanded(webContents, expanded) {
 
   clearTimeout(entry.timer);
   entry.expanded = expanded;
-  const width = expanded ? EXPANDED_WIDTH : COMPACT_WIDTH;
+  const compactWidth = getCompactWidth(entry.display);
+  const width = expanded ? Math.round(compactWidth * EXPANDED_SCALE) : compactWidth;
   const height = computeHeight(width, entry.payload.media?.aspectRatio, entry.display);
   const bounds = boundsForDisplay(entry.display, width, height);
   entry.win.setBounds(bounds);

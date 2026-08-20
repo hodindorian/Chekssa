@@ -24,7 +24,18 @@ function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
 }
 
+function broadcastSessionCount(code) {
+  const room = io.sockets.adapter.rooms.get(code);
+  io.to(code).emit("session-count", { code, count: room ? room.size : 0 });
+}
+
 io.on("connection", (socket) => {
+  // Tracked ourselves rather than read off socket.rooms on disconnect: by
+  // the time "disconnect" fires the socket has already left every room
+  // (which is what we want for an accurate post-departure count), but that
+  // also means socket.rooms no longer tells us *which* rooms to notify.
+  const joinedCodes = new Set();
+
   socket.on("join-session", (rawCode, ack) => {
     const code = normalizeCode(rawCode);
     if (!code) {
@@ -32,13 +43,23 @@ io.on("connection", (socket) => {
       return;
     }
     socket.join(code);
+    joinedCodes.add(code);
     ack?.({ ok: true, code });
+    broadcastSessionCount(code);
   });
 
   socket.on("leave-session", (rawCode, ack) => {
     const code = normalizeCode(rawCode);
     socket.leave(code);
+    joinedCodes.delete(code);
     ack?.({ ok: true, code });
+    broadcastSessionCount(code);
+  });
+
+  socket.on("disconnect", () => {
+    for (const code of joinedCodes) {
+      broadcastSessionCount(code);
+    }
   });
 
   socket.on("broadcast", (payload, ack) => {
