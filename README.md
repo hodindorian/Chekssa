@@ -21,6 +21,16 @@ Dans l'app, rejoignez un code de session (ex: `EQUIPE1`) — n'importe quel code
 
 L'URL du serveur utilisée par le client est stockée localement (`https://chekssa.hodindorian.com` par défaut) ; elle peut être changée via l'IPC `settings:set-server-url` exposé au renderer.
 
+## Tests
+
+```bash
+npm test              # lance la suite Vitest une fois
+npm run test:watch    # mode watch
+npm run test:coverage # avec rapport de couverture (texte + html dans coverage/)
+```
+
+Couvre la logique métier pure (parsing de liens vidéo, dédup des diffusions multi-session, calculs de position/durée de l'overlay, résolution de vidéos X/Twitter et YouTube...) côté `server/`, `client/src/main/` et `discord-bot/`. Le code de câblage pur (bootstrap Electron, `electron-store`, `electron-updater`, client `discord.js`) n'est pas couvert — trop de mocking pour peu de valeur, à tester manuellement.
+
 ## Build / packaging
 
 ```bash

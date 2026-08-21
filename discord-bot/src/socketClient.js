@@ -6,9 +6,6 @@ function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
 }
 
-// A minimal client of the same server the desktop app talks to (see
-// client/src/main/socketClient.js) - the bot is just another participant
-// joining sessions and broadcasting, nothing server-side changes for this.
 class BotSocketClient {
   constructor() {
     this.socket = null;

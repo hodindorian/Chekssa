@@ -1,15 +1,7 @@
 import { useRef, useState } from "react";
 
-// Purely a visual aid - a generic 16:9 monitor shape, not the user's actual
-// resolution. Everything below works in fractions of this box, and those
-// same fractions are what get applied to the real screen's work area later
-// (client/src/main/overlayManager.js), so the box's absolute size here
-// doesn't need to match anything real.
 const SCREEN_BOX_WIDTH = 480;
 const SCREEN_BOX_HEIGHT = 270;
-// Representative shape for the little notification box - just for how it
-// looks while dragging; the real overlay's height always follows the sent
-// media's own aspect ratio.
 const NOTIF_PREVIEW_RATIO = 1.5;
 const MIN_WIDTH_PCT = 0.08;
 const MAX_WIDTH_PCT = 0.6;
@@ -19,6 +11,8 @@ function clamp(value, min, max) {
 }
 
 export default function SettingsModal({
+  displayName,
+  onSaveDisplayName,
   overlayPosition,
   onSaveOverlayPosition,
   appVersion,
@@ -32,6 +26,12 @@ export default function SettingsModal({
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
         <h3>Paramètres</h3>
+
+        <section className="settings-section">
+          <h4>Pseudo</h4>
+          <p className="hint">Affiché aux autres quand tu envoies quelque chose.</p>
+          <DisplayNameField initial={displayName} onSave={onSaveDisplayName} />
+        </section>
 
         <section className="settings-section">
           <h4>Position des notifications</h4>
@@ -105,7 +105,6 @@ function UpdateStatus({ status, onCheck, onDownload, onInstall }) {
       </>
     );
   }
-  // error
   return (
     <>
       <p className="connection-error">{status.error || "Impossible de vérifier les mises à jour."}</p>
@@ -160,8 +159,6 @@ function NotificationPositionPicker({ initial, onSave }) {
       const dxPct = (event.clientX - drag.startClientX) / rect.width;
       setPos((p) => {
         const widthPct = clamp(drag.startWidthPct + dxPct, MIN_WIDTH_PCT, MAX_WIDTH_PCT);
-        // Height follows the same fixed preview ratio as the width - keep
-        // the box fully inside the screen rectangle as it grows.
         const newHeightPct = (widthPct * SCREEN_BOX_WIDTH) / NOTIF_PREVIEW_RATIO / SCREEN_BOX_HEIGHT;
         return {
           ...p,
@@ -173,8 +170,6 @@ function NotificationPositionPicker({ initial, onSave }) {
     }
   }
 
-  // Persisted once per gesture (not on every pointermove) - this writes to
-  // disk via IPC each time, no need to do that dozens of times per drag.
   function endDrag(event) {
     dragRef.current = null;
     event.target.releasePointerCapture?.(event.pointerId);
@@ -209,5 +204,27 @@ function NotificationPositionPicker({ initial, onSave }) {
         </div>
       </div>
     </>
+  );
+}
+
+function DisplayNameField({ initial, onSave }) {
+  const [value, setValue] = useState(initial || "");
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    onSave(value);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="session-join-form">
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => onSave(value)}
+        placeholder="Ton pseudo"
+        maxLength={32}
+      />
+      <button type="submit">Enregistrer</button>
+    </form>
   );
 }

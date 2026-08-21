@@ -18,8 +18,6 @@ function createMainWindow() {
   const win = new BrowserWindow({
     width: 980,
     height: 720,
-    // 320px sidebar + 320px text panel (when a text is selected) + enough
-    // left over for the canvas to stay usable.
     minWidth: 900,
     minHeight: 560,
     show: false,
@@ -106,13 +104,8 @@ if (!gotLock) {
 
     mainWindow = createMainWindow();
 
-    // Only in a real packaged build: electron-updater needs the
-    // app-update.yml electron-builder generates at package time, which
-    // doesn't exist when just running from source.
     if (app.isPackaged) {
-      autoUpdater.checkForUpdates().catch(() => {
-        // Already surfaced to the renderer via the 'error' listener above.
-      });
+      autoUpdater.checkForUpdates().catch(() => {});
     }
 
     tray = createTray({
@@ -130,7 +123,5 @@ if (!gotLock) {
     app.on("activate", () => showMainWindow());
   });
 
-  app.on("window-all-closed", () => {
-    // Keep running in the background (tray) instead of quitting.
-  });
+  app.on("window-all-closed", () => {});
 }

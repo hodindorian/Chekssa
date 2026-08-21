@@ -12,21 +12,15 @@ import logo from "./assets/logo.png";
 
 let nextId = 1;
 
-// Matches an <img> src or a bare URL ending in .gif inside pasted HTML/text,
-// so we can fetch the original animated file instead of the flattened
-// static bitmap most apps put on the OS clipboard for "copy image".
 const GIF_URL_RE = /https?:\/\/[^\s"'<>]+\.gif(\?[^\s"'<>]*)?/i;
-// Keep in step with the same guard in GifPicker.jsx.
 const MAX_GIF_MB = 40;
 const MAX_IMAGE_DISPLAY_MS = 10000;
-// Must match .sidebar's top+bottom padding in App.css.
 const SIDEBAR_VERTICAL_PADDING = 36;
 const THEME_STORAGE_KEY = "chekssa-theme";
 
 export default function App() {
   const [state, setState] = useState({ connected: false, sessionCodes: [], sessionCounts: {}, serverUrl: "" });
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) || "dark");
-  // { kind: "image", dataUrl, aspectRatio, isAnimated } | { kind: "youtube", videoId, start, end, aspectRatio }
   const [media, setMedia] = useState(null);
   const [texts, setTexts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -36,6 +30,7 @@ export default function App() {
   const [localVideoPickerOpen, setLocalVideoPickerOpen] = useState(false);
   const [klipyApiKey, setKlipyApiKey] = useState("");
   const [klipyCustomerId, setKlipyCustomerId] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [overlayPosition, setOverlayPosition] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cropSource, setCropSource] = useState(null);
@@ -65,6 +60,7 @@ export default function App() {
       setKlipyApiKey(s.klipyApiKey || "");
       setKlipyCustomerId(s.klipyCustomerId || "");
       setOverlayPosition(s.overlayPosition || { xPct: 0.72, yPct: 0.02, widthPct: 0.18 });
+      setDisplayName(s.displayName || "");
     });
   }, []);
 
@@ -80,13 +76,9 @@ export default function App() {
   useEffect(() => {
     return window.chekssa.onUpdateStatus((next) => {
       setUpdateStatus(next);
-      // Surface the automatic startup check even when Settings isn't open -
-      // otherwise a user who never opens the gear icon would never know.
       if (next.state === "available") {
         setStatus(`Une nouvelle version (v${next.version}) est disponible. Ouvre les paramètres pour l'installer.`);
       }
-      // "Un clic pour mettre à jour" - once the download finishes, install
-      // and restart automatically instead of making the user click twice.
       if (next.state === "downloaded") {
         window.chekssa.installUpdate();
       }
@@ -111,10 +103,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [status]);
 
-  // The sidebar itself is stretched to the window's full height, so
-  // scrolling was the only way to reach content taller than the window -
-  // instead grow/shrink the actual window to fit the sidebar's real content
-  // height (measured on an unstretched inner wrapper, see .sidebar-content).
   useEffect(() => {
     const el = sidebarContentRef.current;
     if (!el) return undefined;
@@ -135,7 +123,7 @@ export default function App() {
       const plain = dt.getData("text/plain");
       const gifUrl = (html && html.match(GIF_URL_RE)?.[0]) || (plain && plain.trim().match(GIF_URL_RE)?.[0]);
 
-      if (!fileItem && !gifUrl) return; // let normal text paste (e.g. into a textarea) proceed
+      if (!fileItem && !gifUrl) return;
       event.preventDefault();
       importPastedImage({ fileItem, gifUrl });
     }
@@ -144,8 +132,6 @@ export default function App() {
   }, []);
 
   async function importPastedImage({ fileItem, gifUrl }) {
-    // Prefer the original GIF URL when we have one: pasted "copy image" bitmaps
-    // are usually a static PNG snapshot that lost the animation.
     if (gifUrl) {
       try {
         const res = await fetch(gifUrl);
@@ -154,9 +140,7 @@ export default function App() {
           await setImageFromBlob(blob, true);
           return;
         }
-      } catch {
-        // CORS or network failure - fall back to the clipboard bitmap below.
-      }
+      } catch {}
     }
     const file = fileItem?.getAsFile();
     if (file) {
@@ -167,16 +151,11 @@ export default function App() {
   }
 
   async function setImageFromBlob(blob, isAnimated) {
-    // Animated GIFs are sent as-is (resizing would freeze the animation), so
-    // unlike static images they can't be shrunk before hitting the socket's
-    // size limit - catch it here instead of a cryptic "transport close".
     if (isAnimated && blob.size > MAX_GIF_MB * 1024 * 1024) {
       setStatus(`Ce GIF est trop volumineux pour être envoyé (${(blob.size / 1024 / 1024).toFixed(1)} Mo, max ${MAX_GIF_MB} Mo).`);
       return;
     }
     const dataUrl = await readFileAsDataUrl(blob);
-    // Cropping flattens to a single frame, which would kill the animation -
-    // only static images go through the cropper, GIFs land straight on the canvas.
     if (isAnimated) {
       const img = await loadImage(dataUrl);
       replaceMedia({
@@ -193,9 +172,6 @@ export default function App() {
 
   function handleCropConfirm(croppedDataUrl, aspectRatio) {
     const newMedia = { kind: "image", dataUrl: croppedDataUrl, aspectRatio, isAnimated: false, durationMs: MAX_IMAGE_DISPLAY_MS };
-    // Cropping the image already on the canvas ("Rogner l'image") isn't a
-    // new source - keep the texts in that case, only clear them when this
-    // crop is the last step of importing a brand new image.
     if (cropSource?.isNewImport) {
       replaceMedia(newMedia);
     } else {
@@ -221,11 +197,6 @@ export default function App() {
     setMedia((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
-  // Texts are positioned/sized for whatever media they were added on top of -
-  // swapping in a different image/GIF/video makes them meaningless (wrong
-  // spot, wrong aspect ratio), so start fresh whenever the source changes.
-  // Adjusting the *current* media (duration slider, re-cropping) goes
-  // through updateMedia/handleCropConfirm's own path instead, which keep them.
   function replaceMedia(newMedia) {
     setMedia(newMedia);
     setTexts([]);
@@ -245,6 +216,11 @@ export default function App() {
   async function handleSaveKlipyKey(key) {
     const saved = await window.chekssa.setKlipyApiKey(key);
     setKlipyApiKey(saved);
+  }
+
+  async function handleSaveDisplayName(name) {
+    const saved = await window.chekssa.setDisplayName(name);
+    setDisplayName(saved);
   }
 
   function addText() {
@@ -302,8 +278,6 @@ export default function App() {
     setStatus("Envoi en cours…");
     let mediaPayload;
     if (media.kind === "image") {
-      // GIFs go through as-is: resizing them draws a single frame onto a canvas,
-      // which would freeze the animation for recipients.
       const dataUrl = media.isAnimated ? media.dataUrl : await resizeImageDataUrl(media.dataUrl);
       mediaPayload = {
         kind: "image",
@@ -313,10 +287,9 @@ export default function App() {
         durationMs: Math.min(media.durationMs || MAX_IMAGE_DISPLAY_MS, MAX_IMAGE_DISPLAY_MS),
       };
     } else {
-      // Video kinds (youtube/tiktok/twitter/local-video) go through as-is.
       mediaPayload = media;
     }
-    const payload = { codes, media: mediaPayload, texts };
+    const payload = { codes, media: mediaPayload, texts, sender: displayName };
     const res = await window.chekssa.sendBroadcast(payload);
     setStatus(res.ok ? `Envoyé à : ${codes.join(", ")}` : "Échec de l'envoi.");
   }
@@ -516,6 +489,8 @@ export default function App() {
 
       {settingsOpen && overlayPosition && (
         <SettingsModal
+          displayName={displayName}
+          onSaveDisplayName={handleSaveDisplayName}
           overlayPosition={overlayPosition}
           onSaveOverlayPosition={handleSaveOverlayPosition}
           appVersion={appVersion}

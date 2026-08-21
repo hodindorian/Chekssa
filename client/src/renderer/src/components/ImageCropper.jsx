@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { loadImage } from "../imageUtils.js";
 
-// Displayed image is scaled down to fit this box - the crop rectangle itself
-// is stored as fractions (0-1) of the image, so the actual crop math is
-// resolution-independent regardless of this display size.
 const MAX_BOX_WIDTH = 560;
 const MAX_BOX_HEIGHT = 420;
 const MIN_CROP_FRACTION = 0.1;

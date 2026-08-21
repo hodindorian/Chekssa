@@ -1,8 +1,5 @@
 import sharp from "sharp";
 
-// Keep these in step with the equivalent guards in the desktop app
-// (client/src/renderer/src/components/GifPicker.jsx, LocalVideoPicker.jsx)
-// and the server's maxHttpBufferSize (server/src/index.js).
 const MAX_GIF_MB = 8;
 const MAX_VIDEO_MB = 40;
 const MAX_IMAGE_WIDTH = 1200;
@@ -33,9 +30,6 @@ export async function buildImageMedia(url, declaredContentType) {
     };
   }
 
-  // Static image: resize/recompress like the desktop app does before
-  // sending (client/src/renderer/src/imageUtils.js resizeImageDataUrl),
-  // since phone photos can be several MB straight out of the camera.
   const { data, info } = await sharp(buffer)
     .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
     .jpeg({ quality: 82 })
@@ -61,9 +55,6 @@ export async function buildLocalVideoMedia(url, start = 0) {
     dataUrl: `data:${contentType || "video/mp4"};base64,${buffer.toString("base64")}`,
     start: startSec,
     end: startSec + CLIP_SECONDS,
-    // Reading the real aspect ratio needs a video-aware tool (ffprobe) that
-    // this bot doesn't ship with - defaults to landscape, so a portrait
-    // phone video will letterbox instead of filling the frame exactly.
     aspectRatio: 16 / 9,
   };
 }

@@ -1,7 +1,9 @@
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 export const is = {
   dev: !!process.env.ELECTRON_RENDERER_URL,
 };
 
-export const ICON_PATH = join(__dirname, "../../build/icon.png");
+const currentDir = dirname(fileURLToPath(import.meta.url));
+export const ICON_PATH = join(currentDir, "../../build/icon.png");

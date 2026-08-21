@@ -9,9 +9,6 @@ const PLATFORM_LABELS = {
   twitter: "X / Twitter",
 };
 
-// ipcRenderer.invoke wraps a thrown main-process error as
-// "Error invoking remote method '...': Error: <message>" - strip that back
-// down to the actual message before showing it.
 function cleanIpcError(err, fallback) {
   const raw = err?.message || String(err || "");
   const cleaned = raw.replace(/^Error invoking remote method '[^']*':\s*(Error:\s*)?/, "");
@@ -25,9 +22,6 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
   const [error, setError] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
-  // X/Twitter has no seekable/plain embed: the tweet's video has to be
-  // resolved to a direct CDN link first (see videoResolvers.js, main
-  // process - avoids CORS).
   const [twitterVideo, setTwitterVideo] = useState(null);
   const [twitterLoading, setTwitterLoading] = useState(false);
   const [twitterError, setTwitterError] = useState(null);
@@ -54,12 +48,6 @@ export default function VideoLinkPicker({ onInsert, onCancel }) {
     };
   }, [parsed?.platform, parsed?.tweetId]);
 
-  // The iframe embed gives no visible error when YouTube itself refuses to
-  // play a video inside it (embedding disabled by the uploader, deleted,
-  // private...) - it just silently shows "Video unavailable" with nothing we
-  // can detect. Ask the oEmbed endpoint up front instead (see
-  // videoResolvers.js) so we can show a clear reason rather than a
-  // confusing blank/broken preview.
   const [youtubeChecking, setYoutubeChecking] = useState(false);
   const [youtubeError, setYoutubeError] = useState(null);
 

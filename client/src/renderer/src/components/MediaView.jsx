@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-// Renders whatever is currently composed/received: a static image/GIF, or one
-// of the supported video kinds. `autoplay` distinguishes the overlay (plays
-// immediately, no user gesture) from the composer canvas (stays paused/
-// controllable so editing isn't interrupted by playback).
 export default function MediaView({ media, autoplay = false, className = "", onEnded }) {
   if (!media) return null;
 
@@ -25,9 +21,6 @@ export default function MediaView({ media, autoplay = false, className = "", onE
   }
 
   if (media.kind === "twitter") {
-    // Resolved to a direct CDN video URL at insert time (see
-    // videoResolvers.js, main process) - a plain autoplaying <video>, not
-    // the official widget's full post card.
     return <VideoElement className={className} src={media.videoUrl} autoplay={autoplay} />;
   }
 
@@ -54,12 +47,6 @@ function VideoElement({ src, start = 0, end, autoplay, className }) {
     const v = videoRef.current;
     if (!v || !autoplay) return;
     v.play().catch((err) => {
-      // Some CDNs serve the first response as a short segment/preview
-      // rather than a fully seekable file, so the browser can refuse the
-      // initial autoplay attempt even though the element clearly has
-      // playable data - this fires again on "canplaythrough" once more has
-      // buffered.
-      // eslint-disable-next-line no-console
       console.error("Autoplay rejected:", src, err);
     });
   }
@@ -78,10 +65,6 @@ function VideoElement({ src, start = 0, end, autoplay, className }) {
   }
 
   function handleError() {
-    // A black rectangle with no visible message is the worst failure mode -
-    // this is a video/network issue (dead link, blocked host...), not
-    // something retrying would fix, so surface it instead of hiding it.
-    // eslint-disable-next-line no-console
     console.error("Video failed to load:", src, videoRef.current?.error);
     setFailed(true);
   }
@@ -110,10 +93,6 @@ function VideoElement({ src, start = 0, end, autoplay, className }) {
   );
 }
 
-// TikTok's `muted=0` param only unlocks the volume slider - autoplay still
-// starts muted regardless, so unmuting needs its documented postMessage API
-// (https://developers.tiktok.com/doc/embed-player). Retried a few times
-// since we can't know exactly when the player's own listener attaches.
 function TikTokPlayer({ videoId, autoplay, className, onEnded }) {
   const iframeRef = useRef(null);
 
@@ -131,11 +110,6 @@ function TikTokPlayer({ videoId, autoplay, className, onEnded }) {
     }
   }
 
-  // The overlay otherwise only knows to close itself after a flat 60s
-  // fallback (no way to know a TikTok clip's real length up front) - most
-  // clips are much shorter than that and just sit there finished, so close
-  // as soon as the player itself reports playback has ended instead of
-  // waiting out the fallback.
   useEffect(() => {
     if (!onEnded) return undefined;
     function handleMessage(event) {

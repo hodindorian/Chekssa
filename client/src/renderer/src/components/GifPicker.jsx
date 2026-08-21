@@ -1,14 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-// Tenor's API was shut down by Google (no new clients since Jan 2026, third-party
-// access ended June 2026). Klipy is the drop-in-ish replacement recommended by the
-// community; its API key lives in the URL path rather than a query param.
 const KLIPY_BASE = "https://api.klipy.com/api/v1";
-// The overlay popup only ever renders at 340-640px wide, so "hd" gifs (which
-// can run several MB) are wasted weight - "md" is the best size/quality
-// trade-off, with "hd" only as a last-resort fallback if smaller sizes are
-// missing. A hard cap avoids the socket "transport close" that Engine.IO
-// throws when a message exceeds the server's maxHttpBufferSize.
 const MAX_GIF_MB = 40;
 
 export default function GifPicker({ apiKey, customerId, onSaveApiKey, onSelect, onCancel }) {
@@ -24,7 +16,6 @@ export default function GifPicker({ apiKey, customerId, onSaveApiKey, onSelect, 
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => search(query), 350);
     return () => clearTimeout(debounceRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, apiKey]);
 
   async function search(q) {

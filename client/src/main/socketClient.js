@@ -11,9 +11,6 @@ function describeErrorDetail(detail) {
   if (typeof detail === "number") return `status ${detail}`;
   if (detail instanceof Error) return detail.message;
   if (detail && typeof detail === "object") {
-    // XMLHttpRequest-shaped object (engine.io's polling transport error context):
-    // status 0 usually means the connection/TLS failed before an HTTP response came back,
-    // and responseText/statusText often carries the underlying Node error (e.g. cert issue).
     const bits = [
       detail.status != null && `status ${detail.status}`,
       detail.statusText && String(detail.statusText).split("\n")[0],
@@ -33,9 +30,6 @@ class SocketClient extends EventEmitter {
     this.socket = null;
     this.connected = false;
     this.lastError = null;
-    // { CODE: count } - how many sockets (across everyone's devices, app
-    // open or just running in the tray) are currently in each of our
-    // joined sessions. Server-pushed on every join/leave/disconnect.
     this.sessionCounts = {};
   }
 
@@ -68,8 +62,6 @@ class SocketClient extends EventEmitter {
     }
     store.set("serverUrl", serverUrl);
 
-    // Let socket.io negotiate polling -> websocket upgrade (default, most
-    // resilient across reverse proxy configs).
     const socket = io(serverUrl, { reconnection: true });
     this.socket = socket;
 
@@ -85,7 +77,6 @@ class SocketClient extends EventEmitter {
     socket.on("disconnect", (reason) => {
       this.connected = false;
       this.lastError = reason;
-      // Stale once disconnected - fresh counts arrive again as we rejoin on reconnect.
       this.sessionCounts = {};
       this.emitStateChanged();
     });
@@ -131,8 +122,6 @@ class SocketClient extends EventEmitter {
     const code = normalizeCode(rawCode);
     const codes = this.sessionCodes.filter((c) => c !== code);
     store.set("sessionCodes", codes);
-    // Once we leave, the server stops sending us updates for this room, so
-    // the count would otherwise stay frozen at its last known value.
     const { [code]: _removed, ...rest } = this.sessionCounts;
     this.sessionCounts = rest;
     this.emitStateChanged();
@@ -143,18 +132,14 @@ class SocketClient extends EventEmitter {
     return { ok: true, code };
   }
 
-  async sendBroadcast({ codes, media, texts }) {
+  async sendBroadcast({ codes, media, texts, sender }) {
     if (!this.socket?.connected) {
       return { ok: false, error: "Non connecté au serveur." };
     }
-    // A single "broadcast" call with every target code, so the server can
-    // dedupe recipients who belong to more than one of them (see server-side
-    // comment) instead of us firing one call per code and risking duplicate
-    // overlays for anyone in several of the target sessions at once.
     return new Promise((resolve) => {
       this.socket.emit(
         "broadcast",
-        { codes: codes.map(normalizeCode), media, texts },
+        { codes: codes.map(normalizeCode), media, texts, sender },
         (ack) => resolve(ack ?? { ok: false, error: "Pas de réponse du serveur." })
       );
     });

@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("chekssa", {
   setServerUrl: (url) => ipcRenderer.invoke("settings:set-server-url", url),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setKlipyApiKey: (key) => ipcRenderer.invoke("settings:set-klipy-key", key),
+  setDisplayName: (name) => ipcRenderer.invoke("settings:set-display-name", name),
   setOverlayPosition: (position) => ipcRenderer.invoke("settings:set-overlay-position", position),
   resolveTwitterVideo: (tweetId) => ipcRenderer.invoke("video:resolve-twitter", tweetId),
   checkYoutubeEmbeddable: (videoId) => ipcRenderer.invoke("video:check-youtube", videoId),

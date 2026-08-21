@@ -1,16 +1,3 @@
-// One-off script: registers /envoyer with Discord. Run again any time the
-// command's definition changes (options added/renamed/etc).
-//
-//   DISCORD_BOT_TOKEN=... DISCORD_CLIENT_ID=... DISCORD_GUILD_ID=... npm run register-commands
-//
-// DISCORD_GUILD_ID is optional but recommended: guild-scoped commands show
-// up instantly, global ones can take up to an hour to propagate.
-//
-// Uses a plain fetch() rather than discord.js's REST client on purpose:
-// @discordjs/rest's pooled undici connection was leaving a handle open that
-// crashed process.exit() with "UV_HANDLE_CLOSING" on Windows/Node 24 even
-// on success - not worth the dependency for a single PUT request.
-
 import "dotenv/config";
 import { envoyerCommand } from "./commands.js";
 

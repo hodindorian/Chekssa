@@ -8,8 +8,6 @@ import { COMMAND_NAME } from "./commands.js";
 
 const DEFAULT_CODE = process.env.DEFAULT_SESSION_CODE || "REPS2.0";
 
-// Fixed bottom-centered caption - not user-configurable from Discord, unlike
-// the desktop app where text position/style is freely editable.
 function buildTexts(content) {
   const text = (content || "").trim();
   if (!text) return [];
@@ -92,7 +90,6 @@ async function resolveMedia(interaction) {
   if (parsed.platform === "tiktok") {
     return { kind: "tiktok", videoId: parsed.videoId, aspectRatio: parsed.aspectRatio };
   }
-  // twitter
   return { kind: "twitter", ...(await resolveTwitterVideo(parsed.tweetId)) };
 }
 

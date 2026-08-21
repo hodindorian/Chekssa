@@ -24,9 +24,6 @@ export default function TextLayer({ text, containerRef, selected, onSelect, onMo
       const rect = containerRef.current.getBoundingClientRect();
       const clickXPct = ((event.clientX - rect.left) / rect.width) * 100;
       const clickYPct = ((event.clientY - rect.top) / rect.height) * 100;
-      // Grab offset from where the box actually is, not its top-left corner -
-      // otherwise the box jumps to snap its corner under the cursor instead
-      // of following the point that was clicked.
       drag.current = { mode, offsetXPct: clickXPct - text.xPct, offsetYPct: clickYPct - text.yPct };
     } else {
       drag.current = { mode, rightPct: text.xPct + (text.widthPct ?? DEFAULT_WIDTH_PCT) };
@@ -132,9 +129,6 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-// Textareas don't grow with their content like the display <span> does -
-// mirror that by resizing to fit whatever's typed, same trick as any
-// auto-grow textarea.
 function autosize(el) {
   if (!el) return;
   el.style.height = "auto";

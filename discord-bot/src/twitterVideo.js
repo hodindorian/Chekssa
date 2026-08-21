@@ -1,8 +1,3 @@
-// Same approach as client/src/main/videoResolvers.js's resolveTwitterVideo:
-// the public syndication endpoint that platform.twitter.com/widgets.js
-// itself calls to render embeds. No API key, no Electron dependency, so
-// this copy runs as-is in the bot's plain Node process.
-
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 

@@ -1,7 +1,3 @@
-// Same parsing logic as client/src/renderer/src/components/VideoLinkPicker.jsx
-// (parseVideoUrl and friends) - pure URL parsing, no browser/Electron APIs,
-// so it's copied as-is rather than shared across two very different runtimes.
-
 export function parseVideoUrl(input) {
   const trimmed = (input || "").trim();
   if (!trimmed) return null;

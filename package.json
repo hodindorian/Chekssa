@@ -12,7 +12,14 @@
     "dev:server": "npm run dev --workspace server",
     "dev:client": "npm run dev --workspace client",
     "build:client": "npm run build --workspace client",
-    "dev:discord-bot": "npm run start --workspace discord-bot"
+    "dev:discord-bot": "npm run start --workspace discord-bot",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
-  "license": "CC0-1.0"
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.11",
+    "vitest": "^4.1.11"
+  }
 }

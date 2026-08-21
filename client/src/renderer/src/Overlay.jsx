@@ -30,6 +30,7 @@ export default function Overlay() {
       <button className="overlay-close" onClick={handleClose} title="Fermer">
         ×
       </button>
+      {payload.sender && <span className="overlay-sender">{payload.sender}</span>}
       <div className="overlay-image-wrap">
         <MediaView
           media={payload.media}

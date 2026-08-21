@@ -3,13 +3,6 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 
-// YouTube's embedded player refuses to load ("Erreur 153 / configuration
-// error") when the page embedding it has no proper http(s) origin - which is
-// exactly what happens when Electron loads the packaged app via file://.
-// Serving the built renderer over http://127.0.0.1 instead gives it a real
-// origin/referrer, the same way it already works in dev (Vite's localhost
-// server). Bound to loopback only, so it's never reachable from the network.
-
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",

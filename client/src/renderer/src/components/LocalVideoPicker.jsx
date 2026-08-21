@@ -2,8 +2,6 @@ import { useRef, useState } from "react";
 import { readFileAsDataUrl } from "../imageUtils.js";
 
 const CLIP_SECONDS = 17;
-// The whole file is sent (no server-side trimming), only its playback is
-// capped at 17s - keep this in step with the server's maxHttpBufferSize.
 const MAX_FILE_MB = 40;
 
 export default function LocalVideoPicker({ onInsert, onCancel }) {

@@ -28,11 +28,17 @@ export function registerIpcHandlers() {
     klipyApiKey: store.get("klipyApiKey"),
     klipyCustomerId: store.get("klipyCustomerId"),
     overlayPosition: store.get("overlayPosition"),
+    displayName: store.get("displayName"),
   }));
 
   ipcMain.handle("settings:set-klipy-key", (_event, key) => {
     store.set("klipyApiKey", String(key || "").trim());
     return store.get("klipyApiKey");
+  });
+
+  ipcMain.handle("settings:set-display-name", (_event, name) => {
+    store.set("displayName", String(name || "").trim().slice(0, 32));
+    return store.get("displayName");
   });
 
   ipcMain.handle("settings:set-overlay-position", (_event, position) => {
@@ -63,10 +69,6 @@ export function registerIpcHandlers() {
     autoUpdater.quitAndInstall();
   });
 
-  // The sidebar no longer scrolls (it used to fight with the send-status
-  // toast and slider controls for a jumpy, unreliable scrollbar) - instead
-  // the window itself grows/shrinks to fit whatever the sidebar actually
-  // needs, clamped to its minimum size and to the screen's usable height.
   ipcMain.on("window:set-content-height", (event, desiredHeight) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) return;
