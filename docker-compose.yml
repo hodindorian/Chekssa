@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+    env_file:
+      - ./discord-bot/.env
     environment:
       CHEKSSA_SERVER_URL: http://server:4000
-      DEFAULT_SESSION_CODE: REPS2.0
-      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
