@@ -100,7 +100,13 @@ function createOverlayForDisplay(display, payload) {
     skipTaskbar: true,
     show: false,
     hasShadow: false,
-    focusable: true,
+    // Windows drops exclusive/borderless-fullscreen apps (games, video
+    // players) out of fullscreen the moment any other window becomes the
+    // active/foreground one - even a topmost overlay that never steals
+    // focus on purpose. `focusable: false` (WS_EX_NOACTIVATE on Windows)
+    // stops this window from ever becoming that active window, while mouse
+    // clicks (close button, expand toggle) still reach the renderer fine.
+    focusable: false,
     backgroundColor: "#00000000",
     webPreferences: {
       preload: join(currentDir, "../preload/overlay.js"),
