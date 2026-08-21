@@ -147,19 +147,17 @@ class SocketClient extends EventEmitter {
     if (!this.socket?.connected) {
       return { ok: false, error: "Non connecté au serveur." };
     }
-    const results = await Promise.all(
-      codes.map(
-        (code) =>
-          new Promise((resolve) => {
-            this.socket.emit(
-              "broadcast",
-              { code: normalizeCode(code), media, texts },
-              (ack) => resolve({ code, ...(ack ?? { ok: false, error: "Pas de réponse du serveur." }) })
-            );
-          })
-      )
-    );
-    return { ok: results.every((r) => r.ok), results };
+    // A single "broadcast" call with every target code, so the server can
+    // dedupe recipients who belong to more than one of them (see server-side
+    // comment) instead of us firing one call per code and risking duplicate
+    // overlays for anyone in several of the target sessions at once.
+    return new Promise((resolve) => {
+      this.socket.emit(
+        "broadcast",
+        { codes: codes.map(normalizeCode), media, texts },
+        (ack) => resolve(ack ?? { ok: false, error: "Pas de réponse du serveur." })
+      );
+    });
   }
 }
 

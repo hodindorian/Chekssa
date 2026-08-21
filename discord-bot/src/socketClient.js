@@ -48,8 +48,8 @@ class BotSocketClient {
   async broadcast(rawCode, media, texts = []) {
     if (!this.socket?.connected) throw new Error("Non connecté au serveur Chekssa.");
     const code = await this.ensureJoined(rawCode);
-    const ack = await new Promise((resolve) => this.socket.emit("broadcast", { code, media, texts }, resolve));
-    if (!ack?.ok) throw new Error(ack?.error || "Échec de l'envoi.");
+    const ack = await new Promise((resolve) => this.socket.emit("broadcast", { codes: [code], media, texts }, resolve));
+    if (!ack?.ok) throw new Error(ack?.results?.[0]?.error || ack?.error || "Échec de l'envoi.");
     return ack;
   }
 }

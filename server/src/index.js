@@ -63,24 +63,42 @@ io.on("connection", (socket) => {
   });
 
   socket.on("broadcast", (payload, ack) => {
-    const code = normalizeCode(payload?.code);
-    if (!code) {
-      ack?.({ ok: false, error: "Code de session manquant." });
+    const codes = Array.isArray(payload?.codes) ? payload.codes.map(normalizeCode).filter(Boolean) : [];
+    if (codes.length === 0) {
+      ack?.({ ok: false, error: "Aucune session cible." });
       return;
     }
-    if (!socket.rooms.has(code)) {
-      ack?.({ ok: false, error: "Vous n'êtes pas connecté à cette session." });
-      return;
-    }
-    // io.to (not socket.to) so the sender also gets the overlay on their own
-    // screen, showing exactly what recipients see.
-    io.to(code).emit("broadcast-receive", {
+
+    const results = codes.map((code) => ({
       code,
-      media: payload.media,
-      texts: Array.isArray(payload.texts) ? payload.texts : [],
-      sentAt: Date.now(),
-    });
-    ack?.({ ok: true });
+      ok: socket.rooms.has(code),
+      error: socket.rooms.has(code) ? undefined : "Vous n'êtes pas connecté à cette session.",
+    }));
+    const validCodes = results.filter((r) => r.ok).map((r) => r.code);
+
+    if (validCodes.length > 0) {
+      // Union of every target session's members (sender included, via
+      // io.to by socket id below) deduplicated across sessions - someone
+      // who's in several of the target sessions at once, or the sender
+      // themselves, only gets the overlay once instead of once per
+      // session they happen to share with this broadcast.
+      const targetSocketIds = new Set();
+      for (const code of validCodes) {
+        const room = io.sockets.adapter.rooms.get(code);
+        if (room) for (const id of room) targetSocketIds.add(id);
+      }
+      const message = {
+        codes: validCodes,
+        media: payload.media,
+        texts: Array.isArray(payload.texts) ? payload.texts : [],
+        sentAt: Date.now(),
+      };
+      for (const id of targetSocketIds) {
+        io.to(id).emit("broadcast-receive", message);
+      }
+    }
+
+    ack?.({ ok: results.every((r) => r.ok), results });
   });
 });
 
