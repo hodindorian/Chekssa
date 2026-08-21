@@ -1,8 +1,11 @@
 import { BrowserWindow, screen } from "electron";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { is } from "./env.js";
 import { store } from "./store.js";
 import { getLocalServerPort } from "./localServer.js";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 700;
@@ -19,12 +22,26 @@ export function getCompactWidth(display) {
   return Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, raw)));
 }
 
-export function computeHeight(width, aspectRatio, display) {
+// Shrinks/grows width alongside height (rather than just clamping height on
+// its own) so the window's shape always exactly matches the media's real
+// aspect ratio - otherwise a mismatch forces a letterbox/pillarbox or, worse,
+// a crop on whichever dimension the CSS layer can't reconcile.
+export function computeDimensions(baseWidth, aspectRatio, display) {
   const ratio = aspectRatio && aspectRatio > 0 ? aspectRatio : 16 / 9;
-  const mediaHeight = width / ratio;
-  const height = Math.max(MIN_HEIGHT, mediaHeight + 56);
+  let width = baseWidth;
+  let height = width / ratio;
+
   const maxHeight = display.workAreaSize.height * MAX_HEIGHT_RATIO;
-  return Math.min(height, maxHeight);
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * ratio;
+  }
+  if (height < MIN_HEIGHT) {
+    height = MIN_HEIGHT;
+    width = height * ratio;
+  }
+
+  return { width, height };
 }
 
 const MAX_VIDEO_MS = 10000;
@@ -66,8 +83,8 @@ export function boundsForDisplay(display, width, height) {
 }
 
 function createOverlayForDisplay(display, payload) {
-  const width = getCompactWidth(display);
-  const height = computeHeight(width, payload.media?.aspectRatio, display);
+  const baseWidth = getCompactWidth(display);
+  const { width, height } = computeDimensions(baseWidth, payload.media?.aspectRatio, display);
   const bounds = boundsForDisplay(display, width, height);
 
   const win = new BrowserWindow({
@@ -86,7 +103,7 @@ function createOverlayForDisplay(display, payload) {
     focusable: true,
     backgroundColor: "#00000000",
     webPreferences: {
-      preload: join(__dirname, "../preload/overlay.js"),
+      preload: join(currentDir, "../preload/overlay.js"),
       sandbox: false,
       autoplayPolicy: "no-user-gesture-required",
     },
@@ -158,8 +175,8 @@ export function setOverlayExpanded(webContents, expanded) {
   clearTimeout(entry.timer);
   entry.expanded = expanded;
   const compactWidth = getCompactWidth(entry.display);
-  const width = expanded ? Math.round(compactWidth * EXPANDED_SCALE) : compactWidth;
-  const height = computeHeight(width, entry.payload.media?.aspectRatio, entry.display);
+  const baseWidth = expanded ? Math.round(compactWidth * EXPANDED_SCALE) : compactWidth;
+  const { width, height } = computeDimensions(baseWidth, entry.payload.media?.aspectRatio, entry.display);
   const bounds = boundsForDisplay(entry.display, width, height);
   entry.win.setBounds(bounds);
   entry.win.webContents.send("overlay:expanded-changed", expanded);

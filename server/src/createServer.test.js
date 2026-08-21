@@ -50,6 +50,28 @@ describe("server", () => {
     return new Promise((resolve) => client.once(event, resolve));
   }
 
+  it("answers /health with ok and the list of active rooms", async () => {
+    const client = await connect();
+    await emitAsync(client, "join-session", "HEALTHROOM");
+
+    const res = await fetch(`${url}/health`);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.rooms).toContain("HEALTHROOM");
+  });
+
+  it("rejects a broadcast with no codes at all", async () => {
+    const client = await connect();
+    await expect(emitAsync(client, "broadcast", { codes: [], media: {}, texts: [] })).resolves.toEqual({
+      ok: false,
+      error: "Aucune session cible.",
+    });
+    await expect(emitAsync(client, "broadcast", {})).resolves.toEqual({
+      ok: false,
+      error: "Aucune session cible.",
+    });
+  });
+
   it("acks join-session and rejects an empty code", async () => {
     const client = await connect();
     await expect(emitAsync(client, "join-session", "  team1  ")).resolves.toEqual({ ok: true, code: "TEAM1" });
@@ -95,6 +117,18 @@ describe("server", () => {
 
     expect(ack.ok).toBe(true);
     await expect(received).resolves.toMatchObject({ codes: ["ROOMX"], media: { kind: "image" } });
+  });
+
+  it("defaults texts to an empty array when the payload doesn't include one", async () => {
+    const sender = await connect();
+    const receiver = await connect();
+    await emitAsync(sender, "join-session", "ROOMNOTEXT");
+    await emitAsync(receiver, "join-session", "ROOMNOTEXT");
+
+    const received = waitFor(receiver, "broadcast-receive");
+    await emitAsync(sender, "broadcast", { codes: ["ROOMNOTEXT"], media: {} });
+
+    await expect(received).resolves.toMatchObject({ texts: [] });
   });
 
   it("passes the sender's display name through, trimmed and capped", async () => {

@@ -73,6 +73,23 @@ describe("buildImageMedia", () => {
     fetch.mockResolvedValueOnce(fakeResponse({ ok: false, status: 403 }));
     await expect(buildImageMedia("https://cdn/a.png", "image/png")).rejects.toThrow("403");
   });
+
+  it("detects a GIF from the response's own content-type when none was declared", async () => {
+    const gifBytes = Buffer.from("gif-bytes");
+    fetch.mockResolvedValueOnce(fakeResponse({ buffer: gifBytes, contentType: "image/gif" }));
+    sharpInstance.metadata.mockResolvedValueOnce({ width: 10, height: 10 });
+
+    const media = await buildImageMedia("https://cdn/a.gif", undefined);
+    expect(media.isAnimated).toBe(true);
+  });
+
+  it("defaults a GIF's aspect ratio to 1 when metadata has no dimensions", async () => {
+    fetch.mockResolvedValueOnce(fakeResponse({ buffer: Buffer.from("gif"), contentType: "image/gif" }));
+    sharpInstance.metadata.mockResolvedValueOnce({});
+
+    const media = await buildImageMedia("https://cdn/a.gif", "image/gif");
+    expect(media.aspectRatio).toBe(1);
+  });
 });
 
 describe("buildLocalVideoMedia", () => {
@@ -92,5 +109,12 @@ describe("buildLocalVideoMedia", () => {
     const bigVideo = Buffer.alloc(41 * 1024 * 1024);
     fetch.mockResolvedValueOnce(fakeResponse({ buffer: bigVideo }));
     await expect(buildLocalVideoMedia("https://cdn/a.mp4")).rejects.toThrow(/trop volumineuse/);
+  });
+
+  it("defaults to starting at 0 and falls back to video/mp4 when content-type is missing", async () => {
+    fetch.mockResolvedValueOnce(fakeResponse({ buffer: Buffer.from("vid"), contentType: "" }));
+    const media = await buildLocalVideoMedia("https://cdn/a.mp4");
+    expect(media.start).toBe(0);
+    expect(media.dataUrl.startsWith("data:video/mp4;base64,")).toBe(true);
   });
 });

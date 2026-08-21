@@ -91,4 +91,54 @@ describe("resolveTwitterVideo", () => {
     fetch.mockResolvedValueOnce(jsonResponse({}, 500));
     await expect(resolveTwitterVideo("123")).rejects.toThrow("Erreur X/Twitter (500)");
   });
+
+  it("treats a tweet with no mediaDetails key at all as having no media", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ quoted_tweet: {} }));
+    await expect(resolveTwitterVideo("123")).rejects.toThrow("Aucune vidéo trouvée");
+  });
+
+  it("treats a video with no variants list at all as unsupported", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ mediaDetails: [{ type: "video", video_info: {} }] }));
+    await expect(resolveTwitterVideo("123")).rejects.toThrow("Format vidéo non pris en charge");
+  });
+
+  it("treats a missing bitrate as 0 when picking the best variant", async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        mediaDetails: [
+          {
+            type: "video",
+            video_info: {
+              variants: [
+                { content_type: "video/mp4", url: "https://cdn/no-bitrate.mp4" },
+                { content_type: "video/mp4", url: "https://cdn/with-bitrate.mp4", bitrate: 1 },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    const result = await resolveTwitterVideo("123");
+    expect(result.videoUrl).toBe("https://cdn/with-bitrate.mp4");
+  });
+
+  it("treats a missing bitrate as 0 even when it's the later variant", async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        mediaDetails: [
+          {
+            type: "video",
+            video_info: {
+              variants: [
+                { content_type: "video/mp4", url: "https://cdn/with-bitrate.mp4", bitrate: 5 },
+                { content_type: "video/mp4", url: "https://cdn/no-bitrate.mp4" },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    const result = await resolveTwitterVideo("123");
+    expect(result.videoUrl).toBe("https://cdn/with-bitrate.mp4");
+  });
 });

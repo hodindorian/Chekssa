@@ -51,6 +51,76 @@ describe("resolveTwitterVideo", () => {
     fetch.mockResolvedValueOnce(jsonResponse({}, 404));
     await expect(resolveTwitterVideo("123")).rejects.toThrow("introuvable");
   });
+
+  it("throws a generic error on other HTTP failures", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({}, 500));
+    await expect(resolveTwitterVideo("123")).rejects.toThrow("Erreur X/Twitter (500)");
+  });
+
+  it("falls back to a 16:9 aspect ratio when dimensions are missing", async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        mediaDetails: [
+          {
+            type: "animated_gif",
+            video_info: { variants: [{ content_type: "video/mp4", url: "https://cdn/a.mp4", bitrate: 500 }] },
+          },
+        ],
+      })
+    );
+    const result = await resolveTwitterVideo("123");
+    expect(result.aspectRatio).toBe(16 / 9);
+  });
+
+  it("treats a tweet with no mediaDetails key at all as having no media", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ quoted_tweet: {} }));
+    await expect(resolveTwitterVideo("123")).rejects.toThrow("Aucune vidéo trouvée");
+  });
+
+  it("treats a video with no variants list at all as unsupported", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ mediaDetails: [{ type: "video", video_info: {} }] }));
+    await expect(resolveTwitterVideo("123")).rejects.toThrow("Format vidéo non pris en charge");
+  });
+
+  it("treats a missing bitrate as 0 when picking the best variant", async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        mediaDetails: [
+          {
+            type: "video",
+            video_info: {
+              variants: [
+                { content_type: "video/mp4", url: "https://cdn/no-bitrate.mp4" },
+                { content_type: "video/mp4", url: "https://cdn/with-bitrate.mp4", bitrate: 1 },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    const result = await resolveTwitterVideo("123");
+    expect(result.videoUrl).toBe("https://cdn/with-bitrate.mp4");
+  });
+
+  it("treats a missing bitrate as 0 even when it's the later variant", async () => {
+    fetch.mockResolvedValueOnce(
+      jsonResponse({
+        mediaDetails: [
+          {
+            type: "video",
+            video_info: {
+              variants: [
+                { content_type: "video/mp4", url: "https://cdn/with-bitrate.mp4", bitrate: 5 },
+                { content_type: "video/mp4", url: "https://cdn/no-bitrate.mp4" },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    const result = await resolveTwitterVideo("123");
+    expect(result.videoUrl).toBe("https://cdn/with-bitrate.mp4");
+  });
 });
 
 describe("checkYoutubeEmbeddable", () => {
@@ -90,5 +160,28 @@ describe("checkYoutubeEmbeddable", () => {
     fetch.mockResolvedValueOnce(jsonResponse({ title: "ok" }));
     fetch.mockRejectedValueOnce(new Error("network down"));
     await expect(checkYoutubeEmbeddable("abc")).resolves.toEqual({ ok: true });
+  });
+
+  it("doesn't block sending if the watch page itself responds with an error status", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ title: "ok" }));
+    fetch.mockResolvedValueOnce(textResponse("", 503));
+    await expect(checkYoutubeEmbeddable("abc")).resolves.toEqual({ ok: true });
+  });
+
+  it("doesn't block sending if the watch page has no recognizable playability status", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ title: "ok" }));
+    fetch.mockResolvedValueOnce(textResponse("<html>nothing useful here</html>"));
+    await expect(checkYoutubeEmbeddable("abc")).resolves.toEqual({ ok: true });
+  });
+
+  it("throws a generic error for other oEmbed failures", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({}, 500));
+    await expect(checkYoutubeEmbeddable("abc")).rejects.toThrow("Impossible de vérifier");
+  });
+
+  it("falls back to a generic message when a non-OK status has no extractable reason", async () => {
+    fetch.mockResolvedValueOnce(jsonResponse({ title: "ok" }));
+    fetch.mockResolvedValueOnce(textResponse('"playabilityStatus":{"status":"ERROR"}'));
+    await expect(checkYoutubeEmbeddable("abc")).rejects.toThrow("n'est pas disponible en intégration");
   });
 });

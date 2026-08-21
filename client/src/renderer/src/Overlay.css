@@ -107,9 +107,10 @@ video.overlay-media {
 .overlay-sender {
   position: absolute;
   top: 6px;
-  left: 6px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 2;
-  max-width: calc(100% - 40px);
+  max-width: calc(100% - 64px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

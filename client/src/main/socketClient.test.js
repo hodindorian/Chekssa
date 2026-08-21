@@ -77,6 +77,94 @@ describe("socketClient.connect", () => {
     expect(socketClient.getState().lastError).toContain("xhr poll error");
     expect(socketClient.getState().lastError).toContain("status 0");
   });
+
+  it("describes a string description as-is", () => {
+    const fakeSocket = createFakeSocket();
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    fakeSocket.trigger("connect_error", { message: "m", description: "already a string" });
+    expect(socketClient.getState().lastError).toContain("already a string");
+  });
+
+  it("describes an Error-instance description by its message", () => {
+    const fakeSocket = createFakeSocket();
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    fakeSocket.trigger("connect_error", { message: "m", description: new Error("boom") });
+    expect(socketClient.getState().lastError).toContain("boom");
+  });
+
+  it("describes a non-object/non-primitive description via String()", () => {
+    const fakeSocket = createFakeSocket();
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    fakeSocket.trigger("connect_error", { message: "m", description: true });
+    expect(socketClient.getState().lastError).toContain("true");
+  });
+
+  it("pulls every useful field out of an XHR-shaped context object", () => {
+    const fakeSocket = createFakeSocket();
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    fakeSocket.trigger("connect_error", {
+      message: "m",
+      context: {
+        status: 0,
+        statusText: "line one\nline two",
+        responseText: "resp one\nresp two",
+        message: "ctx message",
+        code: "ECONNRESET",
+        type: "TransportError",
+      },
+    });
+    const lastError = socketClient.getState().lastError;
+    expect(lastError).toContain("status 0");
+    expect(lastError).toContain("line one");
+    expect(lastError).not.toContain("line two");
+    expect(lastError).toContain("resp one");
+    expect(lastError).toContain("ctx message");
+    expect(lastError).toContain("ECONNRESET");
+    expect(lastError).toContain("TransportError");
+  });
+
+  it("falls back to JSON when a context object has no useful field", () => {
+    const fakeSocket = createFakeSocket();
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    fakeSocket.trigger("connect_error", { message: "m", context: { irrelevant: true } });
+    expect(socketClient.getState().lastError).toContain('{"irrelevant":true}');
+  });
+
+  it("falls back to String(error) when there's no message/description/context", () => {
+    const fakeSocket = createFakeSocket();
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    fakeSocket.trigger("connect_error", {});
+    expect(socketClient.getState().lastError).toBe("[object Object]");
+  });
+
+  it("re-emits a broadcast-receive event from the socket", () => {
+    const fakeSocket = createFakeSocket();
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    const received = vi.fn();
+    socketClient.once("broadcast-receive", received);
+    fakeSocket.trigger("broadcast-receive", { codes: ["A"] });
+    expect(received).toHaveBeenCalledWith({ codes: ["A"] });
+  });
+
+  it("disconnects any previous socket before reconnecting", () => {
+    const first = createFakeSocket();
+    io.mockReturnValue(first);
+    socketClient.connect("http://localhost:1234");
+
+    const disconnectSpy = vi.spyOn(first, "disconnect");
+    const second = createFakeSocket();
+    io.mockReturnValue(second);
+    socketClient.connect("http://localhost:5678");
+
+    expect(disconnectSpy).toHaveBeenCalled();
+  });
 });
 
 describe("socketClient.joinSession / leaveSession", () => {
@@ -96,6 +184,11 @@ describe("socketClient.joinSession / leaveSession", () => {
     expect(res).toEqual({ ok: false, error: "Code de session vide." });
   });
 
+  it("rejects a nullish session code", async () => {
+    const res = await socketClient.joinSession(null);
+    expect(res).toEqual({ ok: false, error: "Code de session vide." });
+  });
+
   it("removes the code and its cached count on leave", async () => {
     const fakeSocket = createFakeSocket();
     fakeSocket.connected = true;
@@ -107,6 +200,41 @@ describe("socketClient.joinSession / leaveSession", () => {
     await socketClient.leaveSession("TEAM1");
     expect(store.get("sessionCodes")).toEqual([]);
     expect(socketClient.getState().sessionCounts).toEqual({});
+    const leaveCalls = fakeSocket.emit.mock.calls.filter((c) => c[0] === "leave-session");
+    expect(leaveCalls).toHaveLength(1);
+  });
+
+  it("doesn't try to emit leave-session while offline", async () => {
+    const fakeSocket = createFakeSocket();
+    fakeSocket.connected = false;
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+    store.set("sessionCodes", ["TEAM1"]);
+
+    await socketClient.leaveSession("TEAM1");
+    expect(fakeSocket.emit).not.toHaveBeenCalled();
+  });
+
+  it("round-trips a real ack when joining while connected", async () => {
+    const fakeSocket = createFakeSocket();
+    fakeSocket.connected = true;
+    fakeSocket.emit = vi.fn((_event, code, ack) => ack({ ok: true, code }));
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+
+    const res = await socketClient.joinSession("team2");
+    expect(res).toEqual({ ok: true, code: "TEAM2" });
+  });
+
+  it("falls back to a synthesized ack when the server sends none", async () => {
+    const fakeSocket = createFakeSocket();
+    fakeSocket.connected = true;
+    fakeSocket.emit = vi.fn((_event, code, ack) => ack());
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+
+    const res = await socketClient.joinSession("team3");
+    expect(res).toEqual({ ok: true, code: "TEAM3" });
   });
 });
 
@@ -134,5 +262,16 @@ describe("socketClient.sendBroadcast", () => {
     const [event, payload] = fakeSocket.emit.mock.calls[0];
     expect(event).toBe("broadcast");
     expect(payload.codes).toEqual(["A", "B"]);
+  });
+
+  it("falls back to a generic error when the server sends no ack", async () => {
+    const fakeSocket = createFakeSocket();
+    fakeSocket.connected = true;
+    fakeSocket.emit = vi.fn((_event, _payload, ack) => ack());
+    io.mockReturnValue(fakeSocket);
+    socketClient.connect("http://localhost:1234");
+
+    const res = await socketClient.sendBroadcast({ codes: ["A"], media: {}, texts: [] });
+    expect(res).toEqual({ ok: false, error: "Pas de réponse du serveur." });
   });
 });
