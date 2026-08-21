@@ -8,3 +8,5 @@ build/
 *.log
 .DS_Store
 .env
+
+setup-zscaler-trust.ps1
