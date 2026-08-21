@@ -409,6 +409,7 @@ video.canvas-media {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
   line-height: 1.15;
   font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif;
+  text-transform: uppercase;
 }
 
 .edit-text-input {

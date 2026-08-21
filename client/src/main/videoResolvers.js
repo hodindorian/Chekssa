@@ -60,6 +60,35 @@ export async function resolveTwitterVideo(tweetId) {
 // plain HTTP status, so we can show a clear message instead of a silent
 // broken frame. Same CORS reasoning as the Twitter resolver above - done
 // from the main process.
+// oEmbed passing isn't the full story: videos restricted by a copyright/
+// licensing claim (common on official music videos) still return oEmbed
+// 200, but silently fail to actually play once embedded - YouTube's iframe
+// just shows its own "Video unavailable", undetectable from outside a
+// cross-origin frame. The /watch page embeds the real player status
+// (playabilityStatus, with a human-readable reason) as plain JSON, so check
+// that too to catch this case up front instead of a silent broken preview.
+// Best-effort: any failure here (network hiccup, YouTube changing their
+// markup) just skips this extra check - the oEmbed check already covers
+// deleted/private/embedding-disabled videos.
+async function detectYoutubeLicenseBlock(videoId) {
+  try {
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: { "User-Agent": BROWSER_UA, "Accept-Language": "fr-FR,fr;q=0.9" },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const status = html.match(/"playabilityStatus":\s*\{"status":"([A-Z_]+)"/)?.[1];
+    if (!status || status === "OK") return null;
+    const reason = html.match(/"reason":"([^"]*)"/)?.[1] || "";
+    if (/copyright|licen[cs]|content id|claim/i.test(reason)) {
+      return "Vidéo sous licence : diffusion impossible.";
+    }
+    return reason ? `Vidéo indisponible : ${reason}` : "Cette vidéo n'est pas disponible en intégration.";
+  } catch {
+    return null;
+  }
+}
+
 export async function checkYoutubeEmbeddable(videoId) {
   const res = await fetch(
     `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`,
@@ -74,5 +103,9 @@ export async function checkYoutubeEmbeddable(videoId) {
   if (!res.ok) {
     throw new Error(`Impossible de vérifier cette vidéo YouTube (${res.status}).`);
   }
+
+  const licenseIssue = await detectYoutubeLicenseBlock(videoId);
+  if (licenseIssue) throw new Error(licenseIssue);
+
   return { ok: true };
 }

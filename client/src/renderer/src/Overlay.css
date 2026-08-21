@@ -78,6 +78,7 @@ video.overlay-media {
   line-height: 1.15;
   pointer-events: none;
   font-family: Impact, Haettenschweiler, "Franklin Gothic Bold", "Arial Narrow Bold", sans-serif;
+  text-transform: uppercase;
 }
 
 .overlay-close {

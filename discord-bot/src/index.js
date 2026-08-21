@@ -8,6 +8,26 @@ import { COMMAND_NAME } from "./commands.js";
 
 const DEFAULT_CODE = process.env.DEFAULT_SESSION_CODE || "REPS2.0";
 
+// Fixed bottom-centered caption - not user-configurable from Discord, unlike
+// the desktop app where text position/style is freely editable.
+function buildTexts(content) {
+  const text = (content || "").trim();
+  if (!text) return [];
+  return [
+    {
+      id: 1,
+      content: text,
+      xPct: 10,
+      yPct: 78,
+      widthPct: 80,
+      fontPct: 6,
+      color: "#ffffff",
+      bold: true,
+      align: "center",
+    },
+  ];
+}
+
 const token = process.env.DISCORD_BOT_TOKEN;
 if (!token) {
   console.error("DISCORD_BOT_TOKEN manquant.");
@@ -28,7 +48,8 @@ client.on("interactionCreate", async (interaction) => {
   try {
     const media = await resolveMedia(interaction);
     const code = interaction.options.getString("code") || DEFAULT_CODE;
-    await socketClient.broadcast(code, media, []);
+    const texts = buildTexts(interaction.options.getString("texte"));
+    await socketClient.broadcast(code, media, texts);
     await interaction.editReply(`Envoyé sur **${code}** ✅`);
   } catch (err) {
     console.error("[/envoyer]", err);

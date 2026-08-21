@@ -16,6 +16,12 @@ export const envoyerCommand = new SlashCommandBuilder()
   .addStringOption((opt) =>
     opt.setName("code").setDescription(`Code de session (défaut : ${DEFAULT_CODE})`).setRequired(false)
   )
+  .addStringOption((opt) =>
+    opt
+      .setName("texte")
+      .setDescription("Texte à afficher sur l'image (position fixe : bas, centré)")
+      .setRequired(false)
+  )
   .addIntegerOption((opt) =>
     opt
       .setName("debut")
