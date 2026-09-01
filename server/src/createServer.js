@@ -8,6 +8,17 @@ export function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
 }
 
+// Behind a reverse proxy (nginx, Caddy, Traefik...), socket.handshake.address
+// is the proxy's own address, not the client's - the real IP travels in
+// X-Forwarded-For instead ("client, proxy1, proxy2..."), which proxies set
+// automatically. Falls back to the raw handshake address for direct
+// connections (local dev, no proxy in front).
+export function clientIp(socket) {
+  const forwarded = socket.handshake.headers["x-forwarded-for"];
+  if (forwarded) return String(forwarded).split(",")[0].trim();
+  return socket.handshake.address;
+}
+
 export function createServer({ ipLogPath = DEFAULT_IP_LOG_PATH } = {}) {
   const app = express();
   app.use(cors());
@@ -29,7 +40,7 @@ export function createServer({ ipLogPath = DEFAULT_IP_LOG_PATH } = {}) {
 
   io.on("connection", (socket) => {
     const joinedCodes = new Set();
-    recordConnection(socket.handshake.address, ipLogPath);
+    recordConnection(clientIp(socket), ipLogPath);
 
     socket.on("join-session", (rawCode, ack) => {
       const code = normalizeCode(rawCode);
@@ -84,7 +95,7 @@ export function createServer({ ipLogPath = DEFAULT_IP_LOG_PATH } = {}) {
           sender: String(payload.sender || "").trim().slice(0, 32),
           sentAt: Date.now(),
         };
-        recordPseudo(socket.handshake.address, message.sender, ipLogPath);
+        recordPseudo(clientIp(socket), message.sender, ipLogPath);
         for (const id of targetSocketIds) {
           io.to(id).emit("broadcast-receive", message);
         }

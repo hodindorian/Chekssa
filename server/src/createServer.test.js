@@ -3,7 +3,7 @@ import { io as ioClient } from "socket.io-client";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer, normalizeCode } from "./createServer.js";
+import { clientIp, createServer, normalizeCode } from "./createServer.js";
 
 describe("normalizeCode", () => {
   it("trims and uppercases", () => {
@@ -13,6 +13,24 @@ describe("normalizeCode", () => {
   it("returns an empty string for nullish input", () => {
     expect(normalizeCode(null)).toBe("");
     expect(normalizeCode(undefined)).toBe("");
+  });
+});
+
+describe("clientIp", () => {
+  function socketWith(headers, address) {
+    return { handshake: { headers, address } };
+  }
+
+  it("prefers X-Forwarded-For when the socket is behind a reverse proxy", () => {
+    expect(clientIp(socketWith({ "x-forwarded-for": "203.0.113.9" }, "192.168.32.1"))).toBe("203.0.113.9");
+  });
+
+  it("takes the leftmost (original client) hop of a multi-proxy chain", () => {
+    expect(clientIp(socketWith({ "x-forwarded-for": " 203.0.113.9 , 10.0.0.2" }, "192.168.32.1"))).toBe("203.0.113.9");
+  });
+
+  it("falls back to the raw handshake address with no reverse proxy in front", () => {
+    expect(clientIp(socketWith({}, "203.0.113.9"))).toBe("203.0.113.9");
   });
 });
 
