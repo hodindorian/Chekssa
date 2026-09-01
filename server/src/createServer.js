@@ -2,12 +2,13 @@ import express from "express";
 import cors from "cors";
 import http from "node:http";
 import { Server } from "socket.io";
+import { DEFAULT_IP_LOG_PATH, recordConnection, recordPseudo } from "./ipLog.js";
 
 export function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
 }
 
-export function createServer() {
+export function createServer({ ipLogPath = DEFAULT_IP_LOG_PATH } = {}) {
   const app = express();
   app.use(cors());
 
@@ -28,6 +29,7 @@ export function createServer() {
 
   io.on("connection", (socket) => {
     const joinedCodes = new Set();
+    recordConnection(socket.handshake.address, ipLogPath);
 
     socket.on("join-session", (rawCode, ack) => {
       const code = normalizeCode(rawCode);
@@ -82,6 +84,7 @@ export function createServer() {
           sender: String(payload.sender || "").trim().slice(0, 32),
           sentAt: Date.now(),
         };
+        recordPseudo(socket.handshake.address, message.sender, ipLogPath);
         for (const id of targetSocketIds) {
           io.to(id).emit("broadcast-receive", message);
         }

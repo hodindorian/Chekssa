@@ -1,5 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { io as ioClient } from "socket.io-client";
+import { existsSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createServer, normalizeCode } from "./createServer.js";
 
 describe("normalizeCode", () => {
@@ -16,10 +19,13 @@ describe("normalizeCode", () => {
 describe("server", () => {
   let httpServer;
   let url;
+  let ipLogPath;
   const clients = [];
 
   beforeAll(async () => {
-    ({ httpServer } = createServer());
+    // A test-only path so this suite never touches the real server/ip.txt.
+    ipLogPath = join(tmpdir(), `chekssa-ip-log-test-${Date.now()}.txt`);
+    ({ httpServer } = createServer({ ipLogPath }));
     await new Promise((resolve) => httpServer.listen(0, resolve));
     const { port } = httpServer.address();
     url = `http://localhost:${port}`;
@@ -27,6 +33,7 @@ describe("server", () => {
 
   afterAll(() => {
     httpServer.close();
+    rmSync(ipLogPath, { force: true });
   });
 
   afterEach(() => {
@@ -194,5 +201,40 @@ describe("server", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(receiveCount).toBe(1);
+  });
+
+  it("logs a connecting client's IP, then links it to their pseudo once they broadcast with one", async () => {
+    // A dedicated server + log file for this test only - the shared one
+    // above accumulates entries from every other test in this file (all
+    // connecting from the same loopback address), so asserting on its exact
+    // contents would depend on test order.
+    const isolatedIpLogPath = join(tmpdir(), `chekssa-ip-log-isolated-${Date.now()}.txt`);
+    const { httpServer: isolatedServer } = createServer({ ipLogPath: isolatedIpLogPath });
+    await new Promise((resolve) => isolatedServer.listen(0, resolve));
+    const { port } = isolatedServer.address();
+    const isolatedClient = ioClient(`http://localhost:${port}`, { reconnection: false, transports: ["websocket"] });
+
+    try {
+      await new Promise((resolve, reject) => {
+        isolatedClient.once("connect", resolve);
+        isolatedClient.once("connect_error", reject);
+      });
+      await emitAsync(isolatedClient, "join-session", "IPROOM");
+
+      expect(existsSync(isolatedIpLogPath)).toBe(true);
+      // normalizeIp maps both "::1" and "::ffff:127.0.0.1" (which "localhost"
+      // can resolve to depending on the machine) down to plain "127.0.0.1".
+      expect(readFileSync(isolatedIpLogPath, "utf8").trim()).toBe("127.0.0.1");
+
+      await emitAsync(isolatedClient, "broadcast", { codes: ["IPROOM"], media: {}, texts: [], sender: "DH" });
+
+      const afterPseudo = readFileSync(isolatedIpLogPath, "utf8");
+      expect(afterPseudo).toContain("DH - 127.0.0.1");
+      expect(afterPseudo.trim().split("\n")).toHaveLength(1); // upgraded in place, not duplicated
+    } finally {
+      isolatedClient.close();
+      isolatedServer.close();
+      rmSync(isolatedIpLogPath, { force: true });
+    }
   });
 });

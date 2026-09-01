@@ -9,5 +9,6 @@ build/
 .DS_Store
 .env
 coverage/
+server/ip.txt
 
 setup-zscaler-trust.ps1
