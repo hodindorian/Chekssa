@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import http from "node:http";
 import { Server } from "socket.io";
-import { DEFAULT_IP_LOG_PATH, recordConnection, recordPseudo } from "./ipLog.js";
+import { DEFAULT_IP_LOG_PATH, normalizeIp, recordConnection, recordPseudo } from "./ipLog.js";
 
 export function normalizeCode(code) {
   return String(code || "").trim().toUpperCase();
@@ -19,7 +19,22 @@ export function clientIp(socket) {
   return socket.handshake.address;
 }
 
-export function createServer({ ipLogPath = DEFAULT_IP_LOG_PATH } = {}) {
+// Comma / space / newline-separated IPs to refuse, e.g.
+// BLOCKED_IPS="88.190.235.140, 203.0.113.7". Normalized like the IP log so
+// the "::ffff:x" and "::1" handshake forms match a plain IPv4 entry too.
+export function parseBlockedIps(raw) {
+  return new Set(
+    String(raw || "")
+      .split(/[\s,]+/)
+      .map((entry) => normalizeIp(entry))
+      .filter(Boolean)
+  );
+}
+
+export function createServer({
+  ipLogPath = DEFAULT_IP_LOG_PATH,
+  blockedIps = parseBlockedIps(process.env.BLOCKED_IPS),
+} = {}) {
   const app = express();
   app.use(cors());
 
@@ -38,8 +53,27 @@ export function createServer({ ipLogPath = DEFAULT_IP_LOG_PATH } = {}) {
     io.to(code).emit("session-count", { code, count: room ? room.size : 0 });
   }
 
+  // Refuse blocked IPs during the handshake: the client gets a connect_error
+  // and never reaches "connection", so it can't join a room or inflate a
+  // session count. A looping client will keep retrying and keep being
+  // rejected here. Restart the server (below) to drop sockets already open.
+  io.use((socket, next) => {
+    if (blockedIps.has(normalizeIp(clientIp(socket)))) {
+      next(new Error("Connexion refusée."));
+      return;
+    }
+    next();
+  });
+
   io.on("connection", (socket) => {
     const joinedCodes = new Set();
+
+    // Safety net if the list changed while this socket was mid-handshake.
+    if (blockedIps.has(normalizeIp(clientIp(socket)))) {
+      socket.disconnect(true);
+      return;
+    }
+
     recordConnection(clientIp(socket), ipLogPath);
 
     socket.on("join-session", (rawCode, ack) => {

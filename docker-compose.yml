@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 4000
+      BLOCKED_IPS: "88.190.235.140"
     ports:
       - "0.0.0.0:4000:4000"
 
